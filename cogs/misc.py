@@ -10,7 +10,7 @@ class Misc(commands.Cog):
         self.client = client
 
     @commands.command(help='Say hello to Candle!')
-    async def greet(ctx):
+    async def greet(self, ctx):
         hello_responses = [
             'Hello!',
             'Ahoy!',
@@ -20,7 +20,7 @@ class Misc(commands.Cog):
         await ctx.send(response)
 
     @commands.command(name='8ball', help='Ask a question, and it will be answered.')
-    async def _8ball(ctx, *, _):
+    async def _8ball(self, ctx, *, _):
         ball_responses = [
             'Yes.',
             'I suppose so.',

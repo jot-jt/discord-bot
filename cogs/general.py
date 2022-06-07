@@ -14,9 +14,9 @@ class General(commands.Cog):
         await ctx.send(f'Returned in {round(self.client.latency * 1000)} ms')
 
     @commands.command()
-    async def clear(ctx, amount: int):
+    async def clear(self, ctx, amount: int):
         MAX_PURGE = 20
-
+        
         if amount <= MAX_PURGE:
             await ctx.channel.purge(limit=amount+1)
         else:

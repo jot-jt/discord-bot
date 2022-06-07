@@ -41,7 +41,7 @@ async def on_member_remove(member):
 @commands.is_owner()
 async def load(ctx, extension):
     client.load_extension(f'cogs.{extension}')
-    await ctx.send(f'Loaded {extension}.')
+    await ctx.send(f'Loaded {extension}!')
 
 
 @client.command()
@@ -54,15 +54,15 @@ async def unload(ctx, extension):
 @client.command()
 @commands.is_owner()
 async def reload(ctx, extension):
-    unload(ctx, extension)
-    load(ctx, extension)
-    await ctx.send(f'Reloaded {extension}.')
+    client.unload_extension(f'cogs.{extension}')
+    client.load_extension(f'cogs.{extension}')
+    await ctx.send(f'Reloaded {extension}!')
 
 
 @client.command(aliases=['exit'])
 @commands.is_owner()
 async def shutdown(ctx):
-    await ctx.send('Turning off!')
+    await ctx.send('Turning off, goodbye!')
     await client.change_presence(status=discord.Status.offline)
     await ctx.bot.logout()
 
