@@ -37,21 +37,21 @@ async def on_member_remove(member):
     print(f'{member} has been removed from a server.')
 
 
-@client.command()
+@client.command(help='(DEV) Load a cog')
 @commands.is_owner()
 async def load(ctx, extension):
     client.load_extension(f'cogs.{extension}')
     await ctx.send(f'Loaded {extension}!')
 
 
-@client.command()
+@client.command(help='(DEV) Unload a cog')
 @commands.is_owner()
 async def unload(ctx, extension):
     client.unload_extension(f'cogs.{extension}')
     await ctx.send(f'Poof! Unloaded {extension}.')
 
 
-@client.command()
+@client.command(help='(DEV) Reload a cog')
 @commands.is_owner()
 async def reload(ctx, extension):
     client.unload_extension(f'cogs.{extension}')
@@ -59,7 +59,7 @@ async def reload(ctx, extension):
     await ctx.send(f'Reloaded {extension}!')
 
 
-@client.command(aliases=['exit'])
+@client.command(aliases=['exit', 'stop'], help='(DEV) Stop the bot')
 @commands.is_owner()
 async def shutdown(ctx):
     await ctx.send('Turning off, goodbye!')
