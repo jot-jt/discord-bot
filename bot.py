@@ -1,10 +1,10 @@
 # bot.py
+import discord
+from discord.ext import commands
+
 import os
 import logging
 from dotenv import load_dotenv
-
-import discord
-from discord.ext import commands
 
 logger = logging.getLogger('discord')
 logger.setLevel(logging.DEBUG)
@@ -16,8 +16,8 @@ logger.addHandler(handler)
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-GUILD = os.getenv('DISCORD_GUILD')
 PREFIX = os.getenv('BOT_PREFIX')
+STATUS = os.getenv('BOT_STATUS_DESC')
 
 client = commands.Bot(command_prefix=PREFIX)
 
@@ -41,12 +41,14 @@ async def on_member_remove(member):
 @commands.is_owner()
 async def load(ctx, extension):
     client.load_extension(f'cogs.{extension}')
+    await ctx.send(f'Loaded {extension}.')
 
 
 @client.command()
 @commands.is_owner()
 async def unload(ctx, extension):
     client.unload_extension(f'cogs.{extension}')
+    await ctx.send(f'Poof! Unloaded {extension}.')
 
 
 @client.command()
@@ -54,11 +56,14 @@ async def unload(ctx, extension):
 async def reload(ctx, extension):
     unload(ctx, extension)
     load(ctx, extension)
+    await ctx.send(f'Reloaded {extension}.')
 
 
 @client.command(aliases=['exit'])
 @commands.is_owner()
 async def shutdown(ctx):
+    await ctx.send('Turning off!')
+    await client.change_presence(status=discord.Status.offline)
     await ctx.bot.logout()
 
 
@@ -69,6 +74,13 @@ async def on_error(event, *args, **kwargs):
             f.write(f'Unhandled message: {args[0]}\n')
         else:
             raise
+
+
+@client.event
+async def on_ready():
+    await client.change_presence(status=discord.Status.dnd, activity=discord.Game(f'{STATUS}'))
+    print(f'{client.user} is online!')
+
 
 for filename in os.listdir('./cogs'):
     if filename.endswith('.py'):
