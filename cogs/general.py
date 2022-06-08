@@ -13,34 +13,41 @@ class General(commands.Cog):
     async def ping(self, ctx):
         await ctx.send(f'Returned in {round(self.client.latency * 1000)} ms')
 
-    @commands.command()
-    async def clear(self, ctx, amount: int):
-        MAX_PURGE = 20
+    @commands.command(help="Clear message history")
+    async def clear(self, ctx, num_msgs: int):
+        MAX_NUM = 20
 
-        if amount <= MAX_PURGE:
-            await ctx.channel.purge(limit=amount+1)
+        if num_msgs <= MAX_NUM:
+            await ctx.channel.purge(limit=num_msgs+1)
         else:
-            await ctx.send(
-                f'Provided number must be <= {MAX_PURGE}.')
-            await asyncio.sleep(3)
-            await ctx.channel.purge(limit=2)
+            await ctx.send(f'Provided number must be <= {MAX_NUM}.')
 
-    @commands.command(help=f'Change the status of the bot')
+    @clear.error
+    async def clear_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("Please specify the number of messages to delete.")
+
+    @commands.command(help='Change the status of the bot')
     async def changestatus(self, ctx, new_status):
         if new_status == 'idle':
             await self.client.change_presence(status=discord.Status.idle)
-            await ctx.send(f'Changed my status to idle!')
+            await ctx.send('Changed my status to idle!')
         elif new_status == 'dnd':
             await self.client.change_presence(status=discord.Status.dnd)
-            await ctx.send(f'Changed my status to do not disturb!')
+            await ctx.send('Changed my status to do not disturb!')
         elif new_status == 'online':
             await self.client.change_presence(status=discord.Status.online)
-            await ctx.send(f'Changed my status to online!')
+            await ctx.send('Changed my status to online!')
         elif new_status in ['invisible', 'invis', 'offline']:
             await self.client.change_presence(status=discord.Status.offline)
-            await ctx.send(f'Changed my status to offline!')
+            await ctx.send('Changed my status to offline!')
         else:
-            await ctx.send(f'Please use follow the command with one of `online`, `idle`, `dnd`, `invis`.')
+            await ctx.send('Please use follow the command with one of `online`, `idle`, `dnd`, `invis`.')
+
+    @changestatus.error
+    async def changestatus_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send('Please use follow the command with one of `online`, `idle`, `dnd`, `invis`.')
 
 
 def setup(client):

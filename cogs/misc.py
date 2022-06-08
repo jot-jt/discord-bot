@@ -19,7 +19,7 @@ class Misc(commands.Cog):
         response = random.choice(hello_responses)
         await ctx.send(response)
 
-    @commands.command(name='8ball', help='Ask a question, and it will be answered.')
+    @commands.command(name='8ball', help='Ask a question, and it will be answered')
     async def _8ball(self, ctx, *, _):
         ball_responses = [
             'Yes.',
@@ -30,6 +30,11 @@ class Misc(commands.Cog):
         ]
         response = random.choice(ball_responses)
         await ctx.send(response)
+
+    @_8ball.error
+    async def _8ball_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("Please provide a yes/no qeustion.")
 
 
 def setup(client):
