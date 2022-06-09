@@ -28,6 +28,7 @@ class General(commands.Cog):
             await ctx.send("Please specify the number of messages to delete.")
 
     @commands.command(help='Change the status of the bot')
+    @commands.has_permissions(administrator=True)
     async def changestatus(self, ctx, new_status):
         if new_status == 'idle':
             await self.client.change_presence(status=discord.Status.idle)

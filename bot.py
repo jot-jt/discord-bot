@@ -1,5 +1,6 @@
 # bot.py
 import discord
+import json
 from discord.ext import commands
 
 import os
@@ -16,15 +17,44 @@ logger.addHandler(handler)
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-PREFIX = os.getenv('BOT_PREFIX')
+DEFAULT_PREFIX = os.getenv('BOT_PREFIX')
 STATUS = os.getenv('BOT_STATUS_DESC')
 
-client = commands.Bot(command_prefix=PREFIX)
+
+def get_prefix(client, message):
+    with open('data/prefixes.json', 'r') as f:
+        prefixes = json.load(f)
+    return prefixes[str(message.guild.id)]
+
+
+client = commands.Bot(command_prefix=get_prefix)
 
 
 @client.event
-async def on_ready():
-    print(f'{client.user} is online!')
+async def on_guild_join(guild):
+    with open('data/prefixes.json', 'r') as f:
+        prefixes = json.load(f)
+    prefixes[str(guild.id)] = DEFAULT_PREFIX
+    with open('data/prefixes.json', 'w') as f:
+        json.dump(prefixes, f, indent=4)
+
+
+@client.event
+async def on_guild_remove(guild):
+    with open('data/prefixes.json', 'r') as f:
+        prefixes = json.load(f)
+    prefixes.pop(str(guild.id))
+    with open('data/prefixes.json', 'w') as f:
+        json.dump(prefixes, f, indent=4)
+
+
+@client.command(help='Change bot prefix for this server')
+async def changeprefix(ctx, prefix):
+    with open('data/prefixes.json', 'r') as f:
+        prefixes = json.load(f)
+    prefixes[str(ctx.guild.id)] = prefix
+    with open('data/prefixes.json', 'w') as f:
+        json.dump(prefixes, f, indent=4)
 
 
 @client.event
