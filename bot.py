@@ -55,6 +55,13 @@ async def changeprefix(ctx, prefix):
     prefixes[str(ctx.guild.id)] = prefix
     with open('data/prefixes.json', 'w') as f:
         json.dump(prefixes, f, indent=4)
+    await ctx.send(f'The prefix has been changed to `{prefix}`!')
+
+
+@changeprefix.error
+async def changeprefix_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Please specify a new bot prefix.")
 
 
 @client.event
