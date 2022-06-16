@@ -16,43 +16,46 @@ class Quiz(commands.Cog):
 
     @commands.command(aliases=['q'], help='Asks what a Japanese character is in romaji.')
     async def quiz(self, ctx):
-        player_id = str(ctx.author.id)
+        def load_player(player_id):
+            """
+            Loads player data from data/users.json
 
-        if player_id in self.in_progress:
-            await ctx.send('Please wait until starting a new quiz.')
-            return
+            Arguments:
+                player_id: Integer representation of discord user
+            Returns:
+                all_users: Representation of entire users.json file
+                player_id: Representation of specific user in users.json
+            """
+            player_id = str(player_id)
 
-        self.in_progress.append(player_id)
+            with open('data/users.json', 'r', encoding='utf-8') as f:
+                all_users = json.load(f)
 
-        # load player data from json
-        with open('data/users.json', 'r', encoding='utf-8') as f:
-            users = json.load(f)
-
-        try:
-            player_data = users[player_id]
-        except KeyError:
-            # create new profile
-            with open('data/levels.json', 'r', encoding='utf-8') as f:
-                kana = json.load(f)
-            lvl_1_kana = list(kana['1'].keys())
-            users[str(ctx.author.id)] = {
-                "num_correct": 0,
-                "times_played": 0,
-                "level": 1,
-                "familiarities": {
-                    "0": lvl_1_kana,
-                    "1": [],
-                    "2": [],
-                    "3": [],
-                    "4": [],
-                    "5": [],
-                    "6": [],
-                    "7": [],
-                    "8": [],
-                    "9": []
+            try:
+                player_data = all_users[player_id]
+            except KeyError:  # create new profile
+                with open('data/levels.json', 'r', encoding='utf-8') as f:
+                    kana = json.load(f)
+                lvl_1_kana = list(kana['1'].keys())
+                all_users[str(ctx.author.id)] = {
+                    "num_correct": 0,
+                    "times_played": 0,
+                    "level": 1,
+                    "familiarities": {
+                        "0": lvl_1_kana,
+                        "1": [],
+                        "2": [],
+                        "3": [],
+                        "4": [],
+                        "5": [],
+                        "6": [],
+                        "7": [],
+                        "8": [],
+                        "9": []
+                    }
                 }
-            }
-            player_data = users[player_id]
+                player_data = all_users[player_id]
+            return all_users, player_data
 
         def gen_question_data(player_data, bin_weights):
             """
@@ -94,82 +97,96 @@ class Quiz(commands.Cog):
 
             raise RuntimeError('Failed to locate Q&A pair')
 
-        # weight per frequency bin
-        bin_weights = np.array([30, 24, 18, 12, 6, 1, 1, 1, 1, 1])
+        async def q_and_a():
+            """
+            Print question and parse player answer.
+
+            Returns:
+                Boolean of whether player answer correctly
+            """
+            await ctx.send(f'What is the following character in romaji? \n {jp_char}')
+
+            def check(msg):
+                return ctx.author == msg.author and ctx.channel == msg.channel
+            try:
+                msg = await self.client.wait_for("message", timeout=10, check=check)
+            except asyncio.TimeoutError:
+                await ctx.send(f':hourglass: Time\'s up! The answer is `{romaji}`')
+                player_data["familiarities"]["0"].append(jp_char)
+            else:
+                if msg.content.casefold() == romaji.casefold():
+                    await ctx.send(f':white_check_mark: Correct!')
+                    player_data["num_correct"] += 1
+                    return True
+                else:
+                    await ctx.send(f':x: Incorrect! The answer is `{romaji}`')
+            return False
+
+        async def response_update(correct):
+            """
+            Update data based on player response.
+            """
+            familiarity_lvl = 0
+            for i in range(10):
+                if jp_char in player_data["familiarities"][str(i)]:
+                    player_data["familiarities"][str(i)].remove(jp_char)
+                    familiarity_lvl = i
+
+            if correct:  # update familiarity lvl
+                familiarity_lvl = min(familiarity_lvl + 1, 9)  # check ceiling
+            else:
+                familiarity_lvl = max(familiarity_lvl - 1, 0)  # check floor
+
+            if jp_char not in player_data["familiarities"][str(familiarity_lvl)]:
+                player_data["familiarities"][str(
+                    familiarity_lvl)].append(jp_char)
+
+        async def check_level_up():
+            """
+            Check if player can level up based on if all words in current level
+            are mastered.
+            """
+            level = player_data["level"]
+            with open('data/levels.json', 'r', encoding='utf-8') as f:
+                kana = json.load(f)
+            found_unmastered = False
+            for jp_char in kana[str(level)]:
+                found = False
+                for i in range(5, 10):
+                    if jp_char in player_data['familiarities'][str(i)]:
+                        found = True
+                        break
+                if not found:
+                    found_unmastered = True
+
+            if not found_unmastered:
+                level += 1
+                player_data["level"] = level
+                new_kana = kana[str(level)].keys()
+                player_data['familiarities']["0"] += new_kana
+                await ctx.send(f':partying_face: Congratulations! You are now Level {level}!')
+
+        if ctx.author.id in self.in_progress:
+            await ctx.send('Please wait until starting a new quiz.')
+            return
+
+        self.in_progress.append(ctx.author.id)
+        all_users, player_data = load_player(ctx.author.id)
+
+        bin_weights = np.array([20, 18, 18, 15, 10, 6, 5, 4, 3, 1])
         bin_weights = bin_weights / np.sum(bin_weights)
         jp_char, romaji = gen_question_data(player_data, bin_weights)
 
-        # print question
-        await ctx.send(f'What is the following character in romaji? \n {jp_char}')
-
-        def check(msg):
-            """ 
-            Checks if message belongs to the same player and channel where the
-            command is called.
-
-            Inputs:
-                msg: discord.Message object
-            Returns:
-                bool
-            """
-            return ctx.author == msg.author and ctx.channel == msg.channel
-
-        correct = False
-        try:
-            msg = await self.client.wait_for("message", timeout=10, check=check)
-        except asyncio.TimeoutError:
-            await ctx.send(f':hourglass: Time\'s up! The answer is `{romaji}`')
-            player_data["familiarities"]["0"].append(jp_char)
-        else:
-            if msg.content.casefold() == romaji.casefold():
-                await ctx.send(f':white_check_mark: Correct!')
-                player_data["num_correct"] += 1
-                correct = True
-            else:
-                await ctx.send(f':x: Incorrect! The answer is `{romaji}`')
-
-        # update data based on player response
-        familiarity_lvl = 0
-        for i in range(10):
-            if jp_char in player_data["familiarities"][str(i)]:
-                player_data["familiarities"][str(i)].remove(jp_char)
-                familiarity_lvl = i
-
-        if correct:  # update familiarity lvl
-            familiarity_lvl = min(familiarity_lvl + 1, 9)  # check ceiling
-        else:
-            familiarity_lvl = max(familiarity_lvl - 1, 0)  # check floor
-
-        if jp_char not in player_data["familiarities"][str(familiarity_lvl)]:
-            player_data["familiarities"][str(familiarity_lvl)].append(jp_char)
-
-        # check if player can level up based on if all words in current level are mastered
-        level = player_data["level"]
-        with open('data/levels.json', 'r', encoding='utf-8') as f:
-            kana = json.load(f)
-        found_unmastered = False
-        for jp_char in kana[str(level)]:
-            found = False
-            for i in range(5, 10):
-                if jp_char in player_data['familiarities'][str(i)]:
-                    found = True
-                    break
-            if not found:
-                found_unmastered = True
-
-        if not found_unmastered:
-            level += 1
-            player_data["level"] = level
-            new_kana = kana[str(level)].keys()
-            player_data['familiarities']["0"] += new_kana
-            await ctx.send(f':partying_face: Congratulations! You are now Level {level}!')
+        correct = await q_and_a()
+        await response_update(correct)
+        await check_level_up()
 
         player_data["times_played"] += 1
 
         # write player data to json
         with open('data/users.json', 'w', encoding='utf-8') as f:
-            users = json.dump(users, f, ensure_ascii=False, indent=4)
-        self.in_progress.remove(player_id)
+            json.dump(all_users, f, ensure_ascii=False, indent=4)
+        self.in_progress.remove(ctx.author.id)
 
 
 def setup(client):
