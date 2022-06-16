@@ -12,6 +12,7 @@ class Quiz(commands.Cog):
 
     def __init__(self, client):
         self.client = client
+        self.in_progress = []
 
     @commands.command(help='Prints a random hiragana character.')
     async def hiragana(self, ctx):
@@ -23,11 +24,17 @@ class Quiz(commands.Cog):
 
     @commands.command(aliases=['q'], help='Asks what the hiragana character is in romaji.')
     async def question(self, ctx):
+        player_id = str(ctx.author.id)
+
+        if player_id in self.in_progress:
+            await ctx.send('Please wait until starting a new quiz.')
+            return
+
+        self.in_progress.append(player_id)
+
         # load player data from json
         with open('data/users.json', 'r', encoding='utf-8') as f:
             users = json.load(f)
-
-        player_id = str(ctx.author.id)
 
         try:
             player_data = users[player_id]
@@ -125,6 +132,7 @@ class Quiz(commands.Cog):
         # write player data to json
         with open('data/users.json', 'w', encoding='utf-8') as f:
             users = json.dump(users, f, ensure_ascii=False, indent=4)
+        self.in_progress.remove(player_id)
 
 
 def setup(client):
