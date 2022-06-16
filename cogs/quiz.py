@@ -92,17 +92,17 @@ class Quiz(commands.Cog):
         if jp_char not in player_data["familiarities"][str(familiarity_lvl)]:
             player_data["familiarities"][str(familiarity_lvl)].append(jp_char)
 
-        # check if player can level up
-        # found_unmastered = False
-        # for jp_char in kana['hiragana']:
-        #     if jp_char != player_data['familiarities']['5']:
-        #         found_unmastered = True
-        #         break
+        # check if player can level up based on if all words in current level are mastered
+        found_unmastered = False
+        for jp_char in kana['hiragana'][str(level)]:
+            if jp_char not in player_data['familiarities']['5']:
+                found_unmastered = True
+                break
 
-        # if not found_unmastered:
-        #     level += 1
-        #     player_data["level"] = level
-        #     await ctx.send(':partying_face: Congratulations! You are now Level {level}!')
+        if not found_unmastered:
+            level += 1
+            player_data["level"] = level
+            await ctx.send(f':partying_face: Congratulations! You are now Level {level}!')
 
         player_data["times_played"] += 1
 
