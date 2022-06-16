@@ -95,7 +95,7 @@ class Quiz(commands.Cog):
             raise RuntimeError('Failed to locate Q&A pair')
 
         # weight per frequency bin
-        bin_weights = np.array([15, 14, 10, 5, 3, 1, 1, 1, 1, 1])
+        bin_weights = np.array([30, 24, 18, 12, 6, 1, 1, 1, 1, 1])
         bin_weights = bin_weights / np.sum(bin_weights)
         jp_char, romaji = gen_question_data(player_data, bin_weights)
 
@@ -149,9 +149,13 @@ class Quiz(commands.Cog):
             kana = json.load(f)
         found_unmastered = False
         for jp_char in kana[str(level)]:
-            if jp_char not in player_data['familiarities']['5']:
+            found = False
+            for i in range(5, 10):
+                if jp_char in player_data['familiarities'][str(i)]:
+                    found = True
+                    break
+            if not found:
                 found_unmastered = True
-                break
 
         if not found_unmastered:
             level += 1
