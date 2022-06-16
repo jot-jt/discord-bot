@@ -42,14 +42,14 @@ class General(commands.Cog):
             await ctx.send('Changed my status to online!')
         elif new_status in ['invisible', 'invis', 'offline']:
             await self.client.change_presence(status=discord.Status.offline)
-            await ctx.send('Changed my status to offline!')
+            await ctx.send('Changed my status to invisible!')
         else:
-            await ctx.send('Please use follow the command with one of `online`, `idle`, `dnd`, `invis`.')
+            await ctx.send('Missing required argument. Provide one of the following: `online`, `idle`, `dnd`, `invis`.')
 
     @changestatus.error
     async def changestatus_error(self, ctx, error):
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send('Please use follow the command with one of `online`, `idle`, `dnd`, `invis`.')
+            await ctx.send('Missing required argument. Use one of the following: `online`, `idle`, `dnd`, `invis`.')
 
 
 def setup(client):

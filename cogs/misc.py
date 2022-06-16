@@ -10,12 +10,17 @@ class Misc(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    @commands.command(help='Say hello to Candle!')
+    @commands.command(help='Say hello!')
     async def greet(self, ctx):
         hello_responses = [
             'Hello!',
             'Ahoy!',
             'Hola!',
+            'Bonjour!',
+            'こんにちは！',
+            '你好！',
+            '안녕하세요!',
+            'Hallo!',
         ]
         response = random.choice(hello_responses)
         await ctx.send(response)
@@ -35,7 +40,7 @@ class Misc(commands.Cog):
     @_8ball.error
     async def _8ball_error(self, ctx, error):
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Please provide a yes/no qeustion.")
+            await ctx.send("Please provide a yes/no question.")
 
 
 def setup(client):
