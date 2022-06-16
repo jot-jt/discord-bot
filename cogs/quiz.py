@@ -5,6 +5,7 @@ from discord.ext import commands
 import json
 import random
 import asyncio
+import numpy as np
 
 
 class Quiz(commands.Cog):
@@ -31,12 +32,16 @@ class Quiz(commands.Cog):
         try:
             player_data = users[player_id]
         except KeyError:
+            # create new profile
+            with open('data/kana.json', 'r', encoding='utf-8') as f:
+                kana = json.load(f)
+            lvl_1_kana = list(kana['hiragana']['1'].keys())
             users[str(ctx.author.id)] = {
-                "correct_ct": 0,
+                "num_correct": 0,
                 "times_played": 0,
                 "level": 1,
                 "familiarities": {
-                    "0": [],
+                    "0": lvl_1_kana,
                     "1": [],
                     "2": [],
                     "3": [],
@@ -46,15 +51,24 @@ class Quiz(commands.Cog):
             }
             player_data = users[player_id]
 
-        # load random hiragana from json
-        with open('data/kana.json', 'r', encoding='utf-8') as f:
-            kana = json.load(f)
+        # load hiragana pool from json to use for question
         level = player_data["level"]
         char_pool = []
+        char_weights = []  # weight for each entry in char_pool
+        bin_weights = np.array([10, 9, 6, 4, 4, 1])  # weight per frequency bin
+        for i in range(6):
+            char_pool += player_data['familiarities'][str(i)]
+            list_sz = len(player_data['familiarities'][str(i)])
+            char_weights += [bin_weights[i]] * list_sz
+        char_weights = char_weights / np.sum(char_weights)
+        jp_char = np.random.choice(
+            char_pool, replace=False, p=char_weights)
+        with open('data/kana.json', 'r', encoding='utf-8') as f:
+            kana = json.load(f)
         for i in range(1, level+1):
-            char_pool += kana['hiragana'][str(i)].items()
-        print(char_pool)
-        jp_char, romaji = random.choice(char_pool)
+            romaji = kana['hiragana'][str(i)].get(jp_char)
+            if romaji != None:
+                break
 
         # generate question
         await ctx.send(f'What is the following character in romaji? \n {jp_char}')
@@ -72,7 +86,7 @@ class Quiz(commands.Cog):
         else:
             if msg.content == romaji:
                 await ctx.send(f':white_check_mark: Correct!')
-                player_data["correct_ct"] += 1
+                player_data["num_correct"] += 1
                 correct = True
             else:
                 await ctx.send(f':x: Incorrect! The answer is `{romaji}`')
@@ -102,13 +116,15 @@ class Quiz(commands.Cog):
         if not found_unmastered:
             level += 1
             player_data["level"] = level
+            new_kana = kana['hiragana'][str(level)].keys()
+            player_data['familiarities']["0"] += new_kana
             await ctx.send(f':partying_face: Congratulations! You are now Level {level}!')
 
         player_data["times_played"] += 1
 
         # write player data to json
         with open('data/users.json', 'w', encoding='utf-8') as f:
-            users = json.dump(users, f, indent=4)
+            users = json.dump(users, f, ensure_ascii=False, indent=4)
 
 
 def setup(client):
