@@ -22,9 +22,9 @@ STATUS = os.getenv('BOT_STATUS_DESC')
 
 
 def get_prefix(client, message):
-    with open('data/prefixes.json', 'r') as f:
-        prefixes = json.load(f)
-    return prefixes[str(message.guild.id)]
+    with open('data/guilds.json', 'r') as f:
+        guilds = json.load(f)
+    return guilds[str(message.guild.id)]['prefix']
 
 
 client = commands.Bot(command_prefix=get_prefix, case_insensitive=True)
@@ -32,29 +32,29 @@ client = commands.Bot(command_prefix=get_prefix, case_insensitive=True)
 
 @client.event
 async def on_guild_join(guild):
-    with open('data/prefixes.json', 'r') as f:
-        prefixes = json.load(f)
-    prefixes[str(guild.id)] = DEFAULT_PREFIX
-    with open('data/prefixes.json', 'w') as f:
-        json.dump(prefixes, f, indent=4)
+    with open('data/guilds.json', 'r') as f:
+        guilds = json.load(f)
+    guilds[str(guild.id)]['prefix'] = DEFAULT_PREFIX
+    with open('data/guilds.json', 'w') as f:
+        json.dump(guilds, f, indent=4)
 
 
 @client.event
 async def on_guild_remove(guild):
-    with open('data/prefixes.json', 'r') as f:
-        prefixes = json.load(f)
-    prefixes.pop(str(guild.id))
-    with open('data/prefixes.json', 'w') as f:
-        json.dump(prefixes, f, indent=4)
+    with open('data/guilds.json', 'r') as f:
+        guilds = json.load(f)
+    guilds.pop(str(guild.id))
+    with open('data/guilds.json', 'w') as f:
+        json.dump(guilds, f, indent=4)
 
 
 @client.command(help='Change bot prefix for this server')
 async def changeprefix(ctx, prefix):
-    with open('data/prefixes.json', 'r') as f:
-        prefixes = json.load(f)
-    prefixes[str(ctx.guild.id)] = prefix
-    with open('data/prefixes.json', 'w') as f:
-        json.dump(prefixes, f, indent=4)
+    with open('data/guilds.json', 'r') as f:
+        guilds = json.load(f)
+    guilds[str(ctx.guild.id)]['prefix'] = prefix
+    with open('data/guilds.json', 'w') as f:
+        json.dump(guilds, f, indent=4)
     await ctx.send(f'The prefix has been changed to `{prefix}`!')
 
 
