@@ -18,6 +18,10 @@ class Quiz(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.in_progress = []
+        with open('data/vocabulary.json', 'r', encoding='utf-8') as f:
+            self.vocabulary = json.load(f)
+        with open('data/levels.json', 'r', encoding='utf-8') as f:
+            self.levels = json.load(f)
 
     def load_player(self, player_id):
         """
@@ -38,9 +42,7 @@ class Quiz(commands.Cog):
             Returns:
                 new profile representation for player_id
             """
-            with open('data/levels.json', 'r', encoding='utf-8') as f:
-                kana = json.load(f)
-            lvl_1_kana = list(kana['1'].keys())
+            lvl_1_kana = list(self.levels['1'].keys())
             return {
                 "num_correct": 0,
                 "times_played": 0,
@@ -101,22 +103,18 @@ class Quiz(commands.Cog):
                 else:
                     i += 1
 
-            with open('data/levels.json', 'r', encoding='utf-8') as f:
-                kana = json.load(f)
-            player_level = player_data["level"]
-            for i in range(1, player_level+1):
-                romaji = kana[str(i)].get(jp_char)
-                if romaji != None:
-                    return jp_char, romaji  # should always return
-
-            raise RuntimeError('Failed to locate Q&A pair')
+            try:
+                romaji = self.vocabulary[jp_char]['romaji']
+                return jp_char, romaji
+            except:
+                raise RuntimeError('Failed to locate Q&A pair')
 
         async def q_and_a():
             """
             Print question and parse player answer.
 
             Returns:
-                Boolean of whether player answer correctly
+                Boolean of whether player answers correctly
             """
             await ctx.send(f'What is the following character in romaji? \n {jp_char}')
 
@@ -139,6 +137,9 @@ class Quiz(commands.Cog):
         async def response_update(correct):
             """
             Update data based on player response.
+
+            Arguments:
+                correct: bool of whether player answers correctly
             """
             familiarity_lvl = 0
             for i in range(10):
@@ -161,10 +162,8 @@ class Quiz(commands.Cog):
             are mastered.
             """
             level = player_data["level"]
-            with open('data/levels.json', 'r', encoding='utf-8') as f:
-                kana = json.load(f)
             found_unmastered = False
-            for jp_char in kana[str(level)]:
+            for jp_char in self.levels[str(level)]:
                 found = False
                 for i in range(5, 10):
                     if jp_char in player_data['familiarities'][str(i)]:
@@ -176,9 +175,9 @@ class Quiz(commands.Cog):
             if not found_unmastered:
                 level += 1
                 player_data["level"] = level
-                new_kana = kana[str(level)].keys()
+                new_kana = self.levels[str(level)].keys()
                 player_data['familiarities']["0"] += new_kana
-                player_data['discovered_vocab'] += len(kana[str(level)])
+                player_data['discovered_vocab'] += len(self.levels[str(level)])
                 await ctx.send(f':partying_face: Congratulations! You are now Level {level}!')
 
         if ctx.author.id in self.in_progress:
@@ -188,7 +187,7 @@ class Quiz(commands.Cog):
         self.in_progress.append(ctx.author.id)
         player_data = self.load_player(ctx.author.id)
 
-        bin_weights = np.array([18, 14, 14, 14, 12, 7, 7, 6, 5, 3])
+        bin_weights = np.array([18, 16, 15, 14, 13, 6, 6, 5, 4, 3])
         bin_weights = bin_weights / np.sum(bin_weights)
         jp_char, romaji = gen_question_data(player_data, bin_weights)
 
@@ -215,9 +214,7 @@ class Quiz(commands.Cog):
         num_correct = player_data['num_correct']
         vocab_discovered = player_data['discovered_vocab']
         times_played = player_data['times_played']
-
-        with open('data/levels.json', 'r', encoding='utf-8') as f:
-            total_vocab = json.load(f)['total_vocab']
+        total_vocab = self.levels['total_vocab']
 
         profile = discord.Embed(
             color=color
@@ -238,6 +235,7 @@ class Quiz(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def updatevocabcount(self, ctx):
+        """ Json Manipulation"""
         with open('data/levels.json', 'r', encoding='utf-8') as f:
             levels = json.load(f)
         total_lvls = levels['total_lvls']
@@ -248,6 +246,41 @@ class Quiz(commands.Cog):
         with open('data/levels.json', 'w', encoding='utf-8') as f:
             json.dump(levels, f, ensure_ascii=False, indent=4)
         await ctx.send(f'Update successful! There are {sum} vocabulary words.')
+
+    @commands.command()
+    @commands.is_owner()
+    async def createvocabjson(self, ctx):
+        """ Json Manipulation"""
+        with open('data/levels.json', 'r', encoding='utf-8') as f:
+            levels = json.load(f)
+        total_lvls = levels['total_lvls']
+        vocab = {}
+        for i in range(1, total_lvls + 1):
+            level_items = levels[str(i)].items()
+            for kana, romaji in level_items:
+                vocab[kana] = {
+                    "level": i,
+                    "romaji": romaji,
+                    "definition": None,
+                    "pronunciation": None
+                }
+        with open('data/vocabulary.json', 'w', encoding='utf-8') as f:
+            json.dump(vocab, f, ensure_ascii=False, indent=4)
+        await ctx.send(f'Creation successful!')
+
+    @commands.command()
+    @commands.is_owner()
+    async def levelstodict(self, ctx):
+        """ Json Manipulation"""
+        with open('data/levels.json', 'r', encoding='utf-8') as f:
+            levels = json.load(f)
+        total_lvls = levels['total_lvls']
+        for i in range(1, total_lvls + 1):
+            level_keys = list(levels[str(i)].keys())
+            levels[str(i)] = level_keys
+        with open('data/levels.json', 'w', encoding='utf-8') as f:
+            json.dump(levels, f, ensure_ascii=False, indent=4)
+        await ctx.send(f'Command successful!')
 
 
 def setup(client):
