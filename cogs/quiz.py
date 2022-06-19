@@ -219,7 +219,7 @@ class Quiz(commands.Cog):
         self.in_progress.append(ctx.author.id)
         player_data = self.load_player(ctx.author.id)
 
-        bin_weights = np.array([18, 16, 15, 14, 13, 6, 6, 5, 4, 3])
+        bin_weights = np.array([25, 15, 14, 13, 12, 6, 5, 4, 3, 3])
         bin_weights = bin_weights / np.sum(bin_weights)
         jp_char, romaji = gen_question_data(player_data, bin_weights)
 
@@ -276,6 +276,57 @@ class Quiz(commands.Cog):
             name='Vocabulary Discovered', value=f'{vocab_discovered}/{total_vocab}', inline=False)
         await ctx.send(embed=profile)
 
+    @commands.command(aliases=['dict'], help='Displays the words that you have unlocked so far.')
+    async def dictionary(self, ctx):
+        player_data = self.load_player(ctx.author.id)
+        color = discord.Color.dark_magenta().value
+        dict = discord.Embed(
+            color=color,
+            title='Your Dictionary!'
+        )
+        dict.set_author(name=ctx.author.display_name,
+                        icon_url=ctx.author.avatar_url)
+        dict.set_thumbnail(url=PROFILE_THUMBNAIL)
+
+        def generate_string(player_data, start, stop):
+            """
+            Generates a string where each line is in form '{KANA} {ROMAJI}'
+            from player_data's familiarity entries.
+
+            Arguments:
+                player_data: Python representation of users.json player
+                start: starting familiarity bin
+                stop: ending familiarity bin
+            Returns:
+                Pair of string, integer, where:
+                    the string represents the content of the data or "None"
+                    the integer counts the number of entries
+
+            """
+            str_entries = ""
+            count = 0
+            for i in range(start, stop+1):
+                list = player_data['familiarities'][str(i)]
+                if len(list) != 0:
+                    for entry in list:
+                        romaji = self.vocabulary[entry]['romaji']
+                        str_entries += f'\n**{entry}** {romaji}'
+                        count += 1
+            if str_entries == '':
+                str_entries = 'None'
+            return str_entries, count
+
+        learn_entries, learn_count = generate_string(player_data, 0, 5)
+        review_entries, review_count = generate_string(player_data, 6, 8)
+        master_entries, master_count = generate_string(player_data, 9, 9)
+        dict.add_field(name=f'Learning - {learn_count}',
+                       value=learn_entries, inline=False)
+        dict.add_field(name=f'Reviewing - {review_count}',
+                       value=review_entries, inline=False)
+        dict.add_field(
+            name=f'Mastered - {master_count}', value=master_entries, inline=False)
+        await ctx.send(embed=dict)
+
     @commands.command()
     @commands.is_owner()
     async def updatevocabcount(self, ctx):
@@ -311,56 +362,6 @@ class Quiz(commands.Cog):
         with open('data/vocabulary.json', 'w', encoding='utf-8') as f:
             json.dump(vocab, f, ensure_ascii=False, indent=4)
         await ctx.send(f'Creation successful!')
-
-    @commands.command()
-    @commands.is_owner()
-    async def levelstodict(self, ctx):
-        """ Json Manipulation"""
-        with open('data/levels.json', 'r', encoding='utf-8') as f:
-            levels = json.load(f)
-        total_lvls = levels['total_lvls']
-        for i in range(1, total_lvls + 1):
-            level_keys = list(levels[str(i)].keys())
-            levels[str(i)] = level_keys
-        with open('data/levels.json', 'w', encoding='utf-8') as f:
-            json.dump(levels, f, ensure_ascii=False, indent=4)
-        await ctx.send(f'Command successful!')
-
-    @commands.command()
-    @commands.is_owner()
-    async def levelstodict(self, ctx):
-        """ Json Manipulation"""
-        with open('data/levels.json', 'r', encoding='utf-8') as f:
-            levels = json.load(f)
-        total_lvls = levels['total_lvls']
-        for i in range(1, total_lvls + 1):
-            level_keys = list(levels[str(i)].keys())
-            levels[str(i)] = level_keys
-        with open('data/levels.json', 'w', encoding='utf-8') as f:
-            json.dump(levels, f, ensure_ascii=False, indent=4)
-        await ctx.send(f'Command successful!')
-
-    @commands.command()
-    @commands.is_owner()
-    async def addlvlacc(self, ctx):
-        """ Json Manipulation"""
-        with open('data/users.json', 'r', encoding='utf-8') as f:
-            users = json.load(f)
-        for user_id, data in users.items():
-            dict = {}
-            for i in range(10):
-                bin = data['familiarities'][str(i)]
-                for jp_char in bin:
-                    dict[jp_char] = {
-                        'times_correct': 0,
-                        'times_asked': 0,
-                        'familiarity': i
-                    }
-            users[user_id]['vocab'] = dict
-            users[user_id].pop('discovered_vocab')
-        with open('data/users_new.json', 'w', encoding='utf-8') as f:
-            json.dump(users, f, ensure_ascii=False, indent=4)
-        await ctx.send(f'Command successful!')
 
 
 def setup(client):
