@@ -1,5 +1,6 @@
 # quiz.py
 import discord
+import discord_ui
 from discord.ext import commands
 
 import json
@@ -17,6 +18,7 @@ class Quiz(commands.Cog):
 
     def __init__(self, client):
         self.client = client
+        self.ui = discord_ui.UI(client)
         self.in_progress = []
         with open('data/vocabulary.json', 'r', encoding='utf-8') as f:
             self.vocabulary = json.load(f)
@@ -127,18 +129,29 @@ class Quiz(commands.Cog):
 
             def check(msg):
                 return ctx.author == msg.author and ctx.channel == msg.channel
+
+            pronounce_btn = discord_ui.LinkButton(
+                url=self.vocabulary[jp_char]['pronunciation'],
+                label='See Pronunciation'
+            )
+
             try:
                 msg = await self.client.wait_for("message", timeout=5, check=check)
             except asyncio.TimeoutError:
-                await ctx.send(f':hourglass: Time\'s up! The answer is `{romaji}`')
+                await self.ui.components.send(
+                    channel=ctx.channel,
+                    content=f':hourglass: Time\'s up! The answer is `{romaji}`',
+                    components=[pronounce_btn])
                 player_data["familiarities"]["0"].append(jp_char)
             else:
                 if msg.content.casefold() == romaji.casefold():
-                    await ctx.send(f':white_check_mark: Correct!')
-                    player_data["num_correct"] += 1
+                    await ctx.send(':white_check_mark: Correct!')
                     return True
                 else:
-                    await ctx.send(f':x: Incorrect! The answer is `{romaji}`')
+                    await self.ui.components.send(
+                        channel=ctx.channel,
+                        content=f':x: Incorrect! The answer is `{romaji}`',
+                        components=[pronounce_btn])
             return False
 
         async def response_update(correct):
@@ -155,12 +168,16 @@ class Quiz(commands.Cog):
                     familiarity_lvl = i
 
             player_data['vocab'][jp_char]['times_asked'] += 1
+            player_data["times_played"] += 1
 
             if correct:  # update familiarity lvl
                 familiarity_lvl = min(familiarity_lvl + 1, 9)  # check ceiling
+                player_data["num_correct"] += 1
                 player_data['vocab'][jp_char]['times_correct'] += 1
             else:
                 familiarity_lvl = max(familiarity_lvl - 1, 0)  # check floor
+
+            player_data['vocab'][jp_char]['familiarity'] = familiarity_lvl
 
             if jp_char not in player_data["familiarities"][str(familiarity_lvl)]:
                 player_data["familiarities"][str(
@@ -185,7 +202,7 @@ class Quiz(commands.Cog):
             if not found_unmastered:
                 level += 1
                 player_data["level"] = level
-                new_kana = self.levels[str(level)].keys()
+                new_kana = self.levels[str(level)]
                 player_data['familiarities']["0"] += new_kana
                 for vocab_word in list(new_kana):
                     player_data['vocab'][vocab_word] = {
@@ -210,8 +227,6 @@ class Quiz(commands.Cog):
         await response_update(correct)
         await check_level_up()
 
-        player_data["times_played"] += 1
-
         # write player data to json
         with open('data/users.json', 'r', encoding='utf-8') as f:
             all_users = json.load(f)
@@ -219,6 +234,19 @@ class Quiz(commands.Cog):
         with open('data/users.json', 'w', encoding='utf-8') as f:
             json.dump(all_users, f, ensure_ascii=False, indent=4)
         self.in_progress.remove(ctx.author.id)
+
+    @commands.command(help='Gives the pronunciation of a kana.')
+    async def pronounce(self, ctx, vocab: str):
+        try:
+            url = self.vocabulary[vocab]['pronunciation']
+            await ctx.send(url)
+        except KeyError:
+            await ctx.send(":cry: No pronunciation found. Only kanas are supported.")
+
+    @pronounce.error
+    async def pronounce_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("Please provide a kana.")
 
     @commands.command(aliases=['pr'], help='Display your learning profile!')
     async def profile(self, ctx):
