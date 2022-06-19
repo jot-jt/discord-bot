@@ -2,8 +2,6 @@
 import discord
 from discord.ext import commands
 
-import asyncio
-
 
 class General(commands.Cog):
 

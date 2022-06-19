@@ -33,7 +33,7 @@ class Quiz(commands.Cog):
         Returns:
             Python representation of the player's profile from users.json
         """
-        def create_profile(player_id):
+        def create_profile():
             """
             Returns a new profile for player_id.
 
@@ -42,12 +42,18 @@ class Quiz(commands.Cog):
             Returns:
                 new profile representation for player_id
             """
-            lvl_1_kana = list(self.levels['1'].keys())
+            lvl_1_kana = self.levels['1']
+            vocab = {}
+            for jp_char in lvl_1_kana:
+                vocab[jp_char] = {
+                    "times_correct": 0,
+                    "times_asked": 0,
+                    "familiarity": 0
+                }
             return {
                 "num_correct": 0,
                 "times_played": 0,
                 "level": 1,
-                "discovered": len(lvl_1_kana),
                 "familiarities": {
                     "0": lvl_1_kana,
                     "1": [],
@@ -59,7 +65,8 @@ class Quiz(commands.Cog):
                     "7": [],
                     "8": [],
                     "9": []
-                }
+                },
+                "vocab": vocab
             }
 
         with open('data/users.json', 'r', encoding='utf-8') as f:
@@ -68,7 +75,7 @@ class Quiz(commands.Cog):
         try:
             player_data = all_users[str(player_id)]
         except KeyError:
-            player_data = create_profile(player_id)
+            player_data = create_profile()
         return player_data
 
     @commands.command(aliases=['q'], help='Asks what a Japanese character is in romaji.')
@@ -147,8 +154,11 @@ class Quiz(commands.Cog):
                     player_data["familiarities"][str(i)].remove(jp_char)
                     familiarity_lvl = i
 
+            player_data['vocab'][jp_char]['times_asked'] += 1
+
             if correct:  # update familiarity lvl
                 familiarity_lvl = min(familiarity_lvl + 1, 9)  # check ceiling
+                player_data['vocab'][jp_char]['times_correct'] += 1
             else:
                 familiarity_lvl = max(familiarity_lvl - 1, 0)  # check floor
 
@@ -177,7 +187,12 @@ class Quiz(commands.Cog):
                 player_data["level"] = level
                 new_kana = self.levels[str(level)].keys()
                 player_data['familiarities']["0"] += new_kana
-                player_data['discovered_vocab'] += len(self.levels[str(level)])
+                for vocab_word in list(new_kana):
+                    player_data['vocab'][vocab_word] = {
+                        'times_correct': 0,
+                        'times_asked': 0,
+                        'familiarity': 0
+                    }
                 await ctx.send(f':partying_face: Congratulations! You are now Level {level}!')
 
         if ctx.author.id in self.in_progress:
@@ -205,19 +220,20 @@ class Quiz(commands.Cog):
             json.dump(all_users, f, ensure_ascii=False, indent=4)
         self.in_progress.remove(ctx.author.id)
 
-    @commands.command(aliases=['pr'])
+    @commands.command(aliases=['pr'], help='Display your learning profile!')
     async def profile(self, ctx):
         player_data = self.load_player(ctx.author.id)
 
         color = discord.Color.dark_magenta().value
         level = player_data['level']
         num_correct = player_data['num_correct']
-        vocab_discovered = player_data['discovered_vocab']
+        vocab_discovered = len(player_data['vocab'])
         times_played = player_data['times_played']
         total_vocab = self.levels['total_vocab']
 
         profile = discord.Embed(
-            color=color
+            color=color,
+            title='Your Learning Profile!'
         )
 
         profile.set_author(name=ctx.author.display_name,
@@ -280,6 +296,42 @@ class Quiz(commands.Cog):
             levels[str(i)] = level_keys
         with open('data/levels.json', 'w', encoding='utf-8') as f:
             json.dump(levels, f, ensure_ascii=False, indent=4)
+        await ctx.send(f'Command successful!')
+
+    @commands.command()
+    @commands.is_owner()
+    async def levelstodict(self, ctx):
+        """ Json Manipulation"""
+        with open('data/levels.json', 'r', encoding='utf-8') as f:
+            levels = json.load(f)
+        total_lvls = levels['total_lvls']
+        for i in range(1, total_lvls + 1):
+            level_keys = list(levels[str(i)].keys())
+            levels[str(i)] = level_keys
+        with open('data/levels.json', 'w', encoding='utf-8') as f:
+            json.dump(levels, f, ensure_ascii=False, indent=4)
+        await ctx.send(f'Command successful!')
+
+    @commands.command()
+    @commands.is_owner()
+    async def addlvlacc(self, ctx):
+        """ Json Manipulation"""
+        with open('data/users.json', 'r', encoding='utf-8') as f:
+            users = json.load(f)
+        for user_id, data in users.items():
+            dict = {}
+            for i in range(10):
+                bin = data['familiarities'][str(i)]
+                for jp_char in bin:
+                    dict[jp_char] = {
+                        'times_correct': 0,
+                        'times_asked': 0,
+                        'familiarity': i
+                    }
+            users[user_id]['vocab'] = dict
+            users[user_id].pop('discovered_vocab')
+        with open('data/users_new.json', 'w', encoding='utf-8') as f:
+            json.dump(users, f, ensure_ascii=False, indent=4)
         await ctx.send(f'Command successful!')
 
 
