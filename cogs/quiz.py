@@ -295,7 +295,7 @@ class Quiz(commands.Cog):
         await ctx.send(embed=profile)
 
     @commands.command(aliases=['dict'])
-    async def bank(self, ctx):
+    async def dictionary(self, ctx):
         """
         Displays the words that you have unlocked so far.
         """
@@ -341,8 +341,8 @@ class Quiz(commands.Cog):
                         icon_url=ctx.author.avatar_url)
         dict.set_thumbnail(url=PROFILE_THUMBNAIL)
 
-        learn_entries, learn_count = generate_string(set_data, 0, 5)
-        review_entries, review_count = generate_string(set_data, 6, 8)
+        learn_entries, learn_count = generate_string(set_data, 0, 4)
+        review_entries, review_count = generate_string(set_data, 5, 8)
         master_entries, master_count = generate_string(set_data, 9, 9)
         dict.add_field(name=f'Learning - {learn_count}',
                        value=learn_entries, inline=False)
@@ -386,7 +386,7 @@ class Quiz(commands.Cog):
             count = 0
             for i in range(1, total_lvls + 1):
                 lst = []
-                for key, value in data[str(i)].items():
+                for key, _ in data[str(i)].items():
                     lst.append(key)
                 count += len(data[str(i)])
                 data[str(i)] = lst
