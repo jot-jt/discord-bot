@@ -44,7 +44,7 @@ class Quiz(commands.Cog):
             Returns:
                 new profile representation for player_id
             """
-            lvl_1_kana = self.levels['1']
+            lvl_1_kana = self.levels['hiragana']['1']
             vocab = {}
             for jp_char in lvl_1_kana:
                 vocab[jp_char] = {
@@ -53,22 +53,27 @@ class Quiz(commands.Cog):
                     "familiarity": 0
                 }
             return {
-                "num_correct": 0,
-                "times_played": 0,
-                "level": 1,
-                "familiarities": {
-                    "0": lvl_1_kana,
-                    "1": [],
-                    "2": [],
-                    "3": [],
-                    "4": [],
-                    "5": [],
-                    "6": [],
-                    "7": [],
-                    "8": [],
-                    "9": []
-                },
-                "vocab": vocab
+                'active_set': 'hiragana',
+                'sets': {
+                    'hiragana': {
+                        "num_correct": 0,
+                        "times_played": 0,
+                        "level": 1,
+                        "familiarities": {
+                            "0": lvl_1_kana,
+                            "1": [],
+                            "2": [],
+                            "3": [],
+                            "4": [],
+                            "5": [],
+                            "6": [],
+                            "7": [],
+                            "8": [],
+                            "9": []
+                        },
+                        "vocab": vocab
+                    }
+                }
             }
 
         with open('data/users.json', 'r', encoding='utf-8') as f:
@@ -81,15 +86,16 @@ class Quiz(commands.Cog):
         return player_data
 
     @commands.command(aliases=['q'], help='Asks what a Japanese character is in romaji.')
+    @commands.is_owner()
     async def quiz(self, ctx):
-        def gen_question_data(player_data, bin_weights):
+        def gen_question_data(set_data, bin_weights):
             """
             Loads a Q&A pair from levels.json based on player level
-            and word familiarity.
+            and word familiarity of that specific set.
 
             Arguments:
-                player_data: Dictionary that represents a json entry
-                    in data/users.json
+                set_data: Dictionary that represents a json entry
+                    for a player's given vocabulary set in data/users.json
                 bin_weights: Normalized numpy array of size 10 that represents
                     the probability distribution of each familiarity level
             Returns:
@@ -104,7 +110,7 @@ class Quiz(commands.Cog):
             i = 0
             while not found and i < 10:
                 bin_index = bin_priority[i]
-                bin = player_data['familiarities'][str(bin_index)]
+                bin = set_data['familiarities'][str(bin_index)]
                 bin_sz = len(bin)
                 if bin_sz > 0:
                     jp_char = random.choice(bin)
@@ -142,7 +148,7 @@ class Quiz(commands.Cog):
                     channel=ctx.channel,
                     content=f':hourglass: Time\'s up! The answer is `{romaji}`',
                     components=[pronounce_btn])
-                player_data["familiarities"]["0"].append(jp_char)
+                set_data["familiarities"]["0"].append(jp_char)
             else:
                 if msg.content.casefold() == romaji.casefold():
                     await ctx.send(':white_check_mark: Correct!')
@@ -163,24 +169,24 @@ class Quiz(commands.Cog):
             """
             familiarity_lvl = 0
             for i in range(10):
-                if jp_char in player_data["familiarities"][str(i)]:
-                    player_data["familiarities"][str(i)].remove(jp_char)
+                if jp_char in set_data["familiarities"][str(i)]:
+                    set_data["familiarities"][str(i)].remove(jp_char)
                     familiarity_lvl = i
 
-            player_data['vocab'][jp_char]['times_asked'] += 1
-            player_data["times_played"] += 1
+            set_data['vocab'][jp_char]['times_asked'] += 1
+            set_data["times_played"] += 1
 
             if correct:  # update familiarity lvl
                 familiarity_lvl = min(familiarity_lvl + 1, 9)  # check ceiling
-                player_data["num_correct"] += 1
-                player_data['vocab'][jp_char]['times_correct'] += 1
+                set_data["num_correct"] += 1
+                set_data['vocab'][jp_char]['times_correct'] += 1
             else:
                 familiarity_lvl = max(familiarity_lvl - 1, 0)  # check floor
 
-            player_data['vocab'][jp_char]['familiarity'] = familiarity_lvl
+            set_data['vocab'][jp_char]['familiarity'] = familiarity_lvl
 
-            if jp_char not in player_data["familiarities"][str(familiarity_lvl)]:
-                player_data["familiarities"][str(
+            if jp_char not in set_data["familiarities"][str(familiarity_lvl)]:
+                set_data["familiarities"][str(
                     familiarity_lvl)].append(jp_char)
 
         async def check_level_up():
@@ -188,12 +194,12 @@ class Quiz(commands.Cog):
             Check if player can level up based on if all words in current level
             are mastered.
             """
-            level = player_data["level"]
+            level = set_data["level"]
             found_unmastered = False
-            for jp_char in self.levels[str(level)]:
+            for jp_char in self.levels[active_set][str(level)]:
                 found = False
                 for i in range(5, 10):
-                    if jp_char in player_data['familiarities'][str(i)]:
+                    if jp_char in set_data['familiarities'][str(i)]:
                         found = True
                         break
                 if not found:
@@ -201,11 +207,11 @@ class Quiz(commands.Cog):
 
             if not found_unmastered:
                 level += 1
-                player_data["level"] = level
-                new_kana = self.levels[str(level)]
-                player_data['familiarities']["0"] += new_kana
+                set_data["level"] = level
+                new_kana = self.levels[active_set][str(level)]
+                set_data['familiarities']["0"] += new_kana
                 for vocab_word in list(new_kana):
-                    player_data['vocab'][vocab_word] = {
+                    set_data['vocab'][vocab_word] = {
                         'times_correct': 0,
                         'times_asked': 0,
                         'familiarity': 0
@@ -218,10 +224,12 @@ class Quiz(commands.Cog):
 
         self.in_progress.append(ctx.author.id)
         player_data = self.load_player(ctx.author.id)
+        active_set = player_data['active_set']
+        set_data = player_data['sets'][active_set]
 
         bin_weights = np.array([25, 15, 14, 13, 12, 6, 5, 4, 3, 3])
         bin_weights = bin_weights / np.sum(bin_weights)
-        jp_char, romaji = gen_question_data(player_data, bin_weights)
+        jp_char, romaji = gen_question_data(set_data, bin_weights)
 
         correct = await q_and_a()
         await response_update(correct)
@@ -230,7 +238,7 @@ class Quiz(commands.Cog):
         # write player data to json
         with open('data/users.json', 'r', encoding='utf-8') as f:
             all_users = json.load(f)
-            all_users[str(ctx.author.id)] = player_data
+            all_users[str(ctx.author.id)]['sets'][active_set] = set_data
         with open('data/users.json', 'w', encoding='utf-8') as f:
             json.dump(all_users, f, ensure_ascii=False, indent=4)
         self.in_progress.remove(ctx.author.id)
@@ -299,8 +307,9 @@ class Quiz(commands.Cog):
                 stop: ending familiarity bin
             Returns:
                 Pair of string, integer, where:
-                    the string represents the content of the data or "None"
-                    the integer counts the number of entries
+                    the string represents the content of the data or "None" if
+                        empty.
+                    the integer counts the number of entries.
 
             """
             str_entries = ""
@@ -361,6 +370,23 @@ class Quiz(commands.Cog):
                 }
         with open('data/vocabulary.json', 'w', encoding='utf-8') as f:
             json.dump(vocab, f, ensure_ascii=False, indent=4)
+        await ctx.send(f'Creation successful!')
+
+    @commands.command()
+    @commands.is_owner()
+    async def createusersjson(self, ctx):
+        """ Json Manipulation"""
+        with open('data/users.json', 'r', encoding='utf-8') as f:
+            users = json.load(f)
+            for user, data in users.items():
+                users[user] = {
+                    "active_set": "hiragana",
+                    "sets": {
+                        'hiragana': data
+                    }
+                }
+        with open('data/users_new.json', 'w', encoding='utf-8') as f:
+            json.dump(users, f, ensure_ascii=False, indent=4)
         await ctx.send(f'Creation successful!')
 
 
