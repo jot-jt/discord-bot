@@ -85,9 +85,11 @@ class Quiz(commands.Cog):
             player_data = create_profile()
         return player_data
 
-    @commands.command(aliases=['q'], help='Asks what a Japanese character is in romaji.')
-    @commands.is_owner()
+    @commands.command(aliases=['q'])
     async def quiz(self, ctx):
+        """
+        Asks what a vocabulary word is in romaji.
+        """
         def gen_question_data(set_data, bin_weights):
             """
             Loads a Q&A pair from levels.json based on player level
@@ -243,8 +245,11 @@ class Quiz(commands.Cog):
             json.dump(all_users, f, ensure_ascii=False, indent=4)
         self.in_progress.remove(ctx.author.id)
 
-    @commands.command(help='Gives the pronunciation of a kana.')
+    @commands.command()
     async def pronounce(self, ctx, vocab: str):
+        """
+        Returns the pronunciation of a vocabulary word.
+        """
         try:
             url = self.vocabulary[vocab]['pronunciation']
             await ctx.send(url)
@@ -256,20 +261,25 @@ class Quiz(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send("Please provide a kana.")
 
-    @commands.command(aliases=['pr'], help='Display your learning profile!')
+    @commands.command()
     async def profile(self, ctx):
+        """
+        Display statistics for your active set.
+        """
         player_data = self.load_player(ctx.author.id)
+        active_set = player_data['active_set']
+        set_data = player_data['sets'][active_set]
 
         color = discord.Color.dark_magenta().value
-        level = player_data['level']
-        num_correct = player_data['num_correct']
-        vocab_discovered = len(player_data['vocab'])
-        times_played = player_data['times_played']
-        total_vocab = self.levels['total_vocab']
+        level = set_data['level']
+        num_correct = set_data['num_correct']
+        vocab_discovered = len(set_data['vocab'])
+        times_played = set_data['times_played']
+        total_vocab = self.levels[active_set]['total_vocab']
 
         profile = discord.Embed(
             color=color,
-            title='Your Learning Profile!'
+            title=f'Your {active_set.capitalize()} Profile!'
         )
 
         profile.set_author(name=ctx.author.display_name,
@@ -284,25 +294,18 @@ class Quiz(commands.Cog):
             name='Vocabulary Discovered', value=f'{vocab_discovered}/{total_vocab}', inline=False)
         await ctx.send(embed=profile)
 
-    @commands.command(aliases=['dict'], help='Displays the words that you have unlocked so far.')
-    async def dictionary(self, ctx):
-        player_data = self.load_player(ctx.author.id)
-        color = discord.Color.dark_magenta().value
-        dict = discord.Embed(
-            color=color,
-            title='Your Dictionary!'
-        )
-        dict.set_author(name=ctx.author.display_name,
-                        icon_url=ctx.author.avatar_url)
-        dict.set_thumbnail(url=PROFILE_THUMBNAIL)
-
-        def generate_string(player_data, start, stop):
+    @commands.command(aliases=['dict'])
+    async def bank(self, ctx):
+        """
+        Displays the words that you have unlocked so far.
+        """
+        def generate_string(set_data, start, stop):
             """
             Generates a string where each line is in form '{KANA} {ROMAJI}'
             from player_data's familiarity entries.
 
             Arguments:
-                player_data: Python representation of users.json player
+                set_data: Python representation of users.json set
                 start: starting familiarity bin
                 stop: ending familiarity bin
             Returns:
@@ -315,7 +318,7 @@ class Quiz(commands.Cog):
             str_entries = ""
             count = 0
             for i in range(start, stop+1):
-                list = player_data['familiarities'][str(i)]
+                list = set_data['familiarities'][str(i)]
                 if len(list) != 0:
                     for entry in list:
                         romaji = self.vocabulary[entry]['romaji']
@@ -325,9 +328,22 @@ class Quiz(commands.Cog):
                 str_entries = 'None'
             return str_entries, count
 
-        learn_entries, learn_count = generate_string(player_data, 0, 5)
-        review_entries, review_count = generate_string(player_data, 6, 8)
-        master_entries, master_count = generate_string(player_data, 9, 9)
+        player_data = self.load_player(ctx.author.id)
+        active_set = player_data['active_set']
+        set_data = player_data['sets'][active_set]
+
+        color = discord.Color.dark_magenta().value
+        dict = discord.Embed(
+            color=color,
+            title=f'Your {active_set.capitalize()} Vocabulary Bank!'
+        )
+        dict.set_author(name=ctx.author.display_name,
+                        icon_url=ctx.author.avatar_url)
+        dict.set_thumbnail(url=PROFILE_THUMBNAIL)
+
+        learn_entries, learn_count = generate_string(set_data, 0, 5)
+        review_entries, review_count = generate_string(set_data, 6, 8)
+        master_entries, master_count = generate_string(set_data, 9, 9)
         dict.add_field(name=f'Learning - {learn_count}',
                        value=learn_entries, inline=False)
         dict.add_field(name=f'Reviewing - {review_count}',
@@ -337,56 +353,78 @@ class Quiz(commands.Cog):
         await ctx.send(embed=dict)
 
     @commands.command()
+    async def sets(self, ctx):
+        """
+        Displays your available and active sets.
+        """
+        player_data = self.load_player(ctx.author.id)
+        desc = ''
+        active_set = player_data['active_set']
+        for set in player_data['sets']:
+            desc += f'\n{set.capitalize()}'
+            if set == active_set:
+                desc += ' **(ACTIVE)**'
+        color = discord.Color.dark_magenta().value
+        embed = discord.Embed(
+            color=color,
+            title='Your Available Sets',
+            description=desc
+        )
+        embed.set_author(name=ctx.author.display_name,
+                         icon_url=ctx.author.avatar_url)
+        embed.set_thumbnail(url=PROFILE_THUMBNAIL)
+        await ctx.send(embed=embed)
+
+    @commands.command()
     @commands.is_owner()
-    async def updatevocabcount(self, ctx):
-        """ Json Manipulation"""
-        with open('data/levels.json', 'r', encoding='utf-8') as f:
+    async def updatelvls(self, ctx):
+        """(DEV) Updates levels.json from the data of levels_aux.json"""
+        with open('data/levels_aux.json', 'r', encoding='utf-8') as f:
             levels = json.load(f)
-        total_lvls = levels['total_lvls']
-        sum = 0
-        for i in range(1, total_lvls + 1):
-            sum += len(levels[str(i)])
-        levels['total_vocab'] = sum
+        for set, data in levels.items():
+            total_lvls = data['total_lvls']
+            count = 0
+            for i in range(1, total_lvls + 1):
+                lst = []
+                for key, value in data[str(i)].items():
+                    lst.append(key)
+                count += len(data[str(i)])
+                data[str(i)] = lst
+            data['total_vocab'] = count
+
+            levels[set] = data
         with open('data/levels.json', 'w', encoding='utf-8') as f:
             json.dump(levels, f, ensure_ascii=False, indent=4)
-        await ctx.send(f'Update successful! There are {sum} vocabulary words.')
+        await ctx.send(f'Update successful!')
 
     @commands.command()
     @commands.is_owner()
-    async def createvocabjson(self, ctx):
-        """ Json Manipulation"""
-        with open('data/levels.json', 'r', encoding='utf-8') as f:
+    async def updatevocab(self, ctx):
+        """
+        (DEV) Updates vocabulary.json from the data of levels_aux.json.
+        Pronunciation is retained.
+        """
+        with open('data/levels_aux.json', 'r', encoding='utf-8') as f:
             levels = json.load(f)
-        total_lvls = levels['total_lvls']
-        vocab = {}
-        for i in range(1, total_lvls + 1):
-            level_items = levels[str(i)].items()
-            for kana, romaji in level_items:
-                vocab[kana] = {
-                    "level": i,
-                    "romaji": romaji,
-                    "definition": None,
-                    "pronunciation": None
-                }
-        with open('data/vocabulary.json', 'w', encoding='utf-8') as f:
-            json.dump(vocab, f, ensure_ascii=False, indent=4)
-        await ctx.send(f'Creation successful!')
-
-    @commands.command()
-    @commands.is_owner()
-    async def createusersjson(self, ctx):
-        """ Json Manipulation"""
-        with open('data/users.json', 'r', encoding='utf-8') as f:
-            users = json.load(f)
-            for user, data in users.items():
-                users[user] = {
-                    "active_set": "hiragana",
-                    "sets": {
-                        'hiragana': data
+        with open('data/vocabulary.json', 'r', encoding='utf-8') as f:
+            vocabulary = json.load(f)
+        updated_vocab = {}
+        for set, data in levels.items():
+            total_lvls = data['total_lvls']
+            for i in range(1, total_lvls + 1):
+                for kana, romaji in data[str(i)].items():
+                    try:
+                        pronunciation = vocabulary[kana]['pronunciation']
+                    except:
+                        pronunciation = None
+                    updated_vocab[kana] = {
+                        "set": set,
+                        "level": i,
+                        "romaji": romaji,
+                        "pronunciation": pronunciation
                     }
-                }
-        with open('data/users_new.json', 'w', encoding='utf-8') as f:
-            json.dump(users, f, ensure_ascii=False, indent=4)
+        with open('data/vocabulary.json', 'w', encoding='utf-8') as f:
+            json.dump(updated_vocab, f, ensure_ascii=False, indent=4)
         await ctx.send(f'Creation successful!')
 
 
