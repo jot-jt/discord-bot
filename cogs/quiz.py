@@ -229,7 +229,7 @@ class Quiz(commands.Cog):
         active_set = player_data['active_set']
         set_data = player_data['sets'][active_set]
 
-        bin_weights = np.array([25, 15, 14, 13, 12, 6, 5, 4, 3, 3])
+        bin_weights = np.array([20, 13, 13, 13, 12, 7, 6, 6, 5, 4])
         bin_weights = bin_weights / np.sum(bin_weights)
         jp_char, romaji = gen_question_data(set_data, bin_weights)
 
@@ -261,7 +261,7 @@ class Quiz(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send("Please provide a kana.")
 
-    @commands.command()
+    @commands.command(aliases=['pr'])
     async def profile(self, ctx):
         """
         Display statistics for your active set.
