@@ -12,6 +12,45 @@ class Database():
         self.cur = self.con.cursor()
         print('Connected to database.')
 
+    def current_level(self, user_id, set_id):
+        """
+        Returns the set level of the set for user
+
+        Arguments:
+            user_id: Discord user id
+            set_id: desired set to get current level from
+        Returns:
+            int representing current level
+        Raises:
+            RuntimeError if user-set pair doesn't exist
+        """
+        self.cur.execute(
+            "SELECT current_level FROM 'unlocked-sets' WHERE user_id = ? AND set_id = ?", [user_id, set_id])
+        try:
+            return self.cur.fetchone()[0]
+        except:
+            raise RuntimeError(
+                f'set_id {set_id} does not belong to user {user_id}')
+
+    def active_set(self, user_id):
+        """
+        Returns the set id of the user's active set.
+
+        Arguments:
+            user_id: Discord user id
+        Returns:
+            Int representing set id
+        Raises:
+            RuntimeError if user doesn't exist
+        """
+        self.cur.execute(
+            "SELECT active_set_id FROM 'users' WHERE user_id = ?", [user_id])
+        try:
+            return self.cur.fetchall()[0][0]
+        except:
+            raise RuntimeError(
+                f'User {user_id} does not exist')
+
     def __unlock_vocab(self, user_id, set_id, new_level):
         """
         Updates the [user-to-vocab] table with vocabulary associated with
@@ -64,11 +103,28 @@ class Database():
         self.cur.execute(
             "UPDATE 'unlocked-sets' SET current_level = current_level + 1 WHERE user_id = ?;",
             [user_id])
-        self.cur.execute(
-            "SELECT current_level FROM 'unlocked-sets' WHERE user_id = ? AND set_id = ?", [user_id, set_id])
-        new_level = self.cur.fetchall()[0][0]
+        new_level = self.current_level(user_id, set_id)
         self.__unlock_vocab(user_id, set_id, new_level)
         self.con.commit()
+
+    def player_familiarities(self, user_id, set_id):
+        """
+        Returns all vocab id's and familiarity pairs for all unlocked levels of
+        the specified set for the user.
+
+        Arguments:
+            user_id: Discord user id
+            set_id: Desired set id to pull the familiarities from. If None, uses
+                the user's active set.
+        Returns:
+            List of all vocab id and familiarity pairs in the specified
+            set for the user.
+        """
+        max_level = self.current_level(user_id, set_id)
+        print(max_level)
+        self.cur.execute("SELECT vocab_id, familiarity FROM 'user-to-vocab' WHERE user_id = ? AND vocab_id IN ( \
+            SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ? AND level <= ?)", [user_id, set_id, max_level])
+        return self.cur.fetchall()
 
 # self.cur.execute(
 #     "SELECT char_native FROM 'vocab' WHERE vocab_id IN ( \
@@ -79,4 +135,4 @@ class Database():
 
 db = Database()
 # db.unlock_set(123, 2)
-db.level_up(123, 2)
+print(db.player_familiarities(208353857992916992, 2))

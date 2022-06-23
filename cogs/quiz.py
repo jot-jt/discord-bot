@@ -7,6 +7,7 @@ import json
 import random
 import asyncio
 import numpy as np
+import background.database as db
 
 import os
 from dotenv import load_dotenv
@@ -24,6 +25,7 @@ class Quiz(commands.Cog):
             self.vocabulary = json.load(f)
         with open('data/levels.json', 'r', encoding='utf-8') as f:
             self.levels = json.load(f)
+        self.db = db.Database()
 
     def load_player(self, player_id):
         """
