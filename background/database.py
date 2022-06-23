@@ -1,4 +1,6 @@
 import sqlite3
+import numpy as np
+
 
 import os
 from dotenv import load_dotenv
@@ -12,7 +14,7 @@ class Database():
         self.cur = self.con.cursor()
         print('Connected to database.')
 
-    def current_level(self, user_id, set_id):
+    def current_level(self, user_id: int, set_id: int):
         """
         Returns the set level of the set for user
 
@@ -32,7 +34,7 @@ class Database():
             raise RuntimeError(
                 f'set_id {set_id} does not belong to user {user_id}')
 
-    def active_set(self, user_id):
+    def active_set(self, user_id: int):
         """
         Returns the set id of the user's active set.
 
@@ -51,7 +53,22 @@ class Database():
             raise RuntimeError(
                 f'User {user_id} does not exist')
 
-    def __unlock_vocab(self, user_id, set_id, new_level):
+    def familiarity(self, user_id, vocab_id):
+        """
+        Returns an int of the user's familiarity level of the vocab.
+
+        Raises:
+            RuntimeError if user_id, vocab_id pair is invalid
+        """
+        self.cur.execute("SELECT familiarity FROM 'user-to-vocab' \
+            WHERE user_id = ? AND vocab_id = ?", [user_id, vocab_id])
+        try:
+            return self.cur.fetchone()[0]
+        except:
+            raise RuntimeError(
+                f'Cannot find {vocab_id} for user {user_id}')
+
+    def __unlock_vocab(self, user_id: int, set_id: int, new_level: int):
         """
         Updates the [user-to-vocab] table with vocabulary associated with
         a set level for a user.
@@ -70,7 +87,7 @@ class Database():
             )
         self.con.commit()
 
-    def unlock_set(self, user_id, set_id):
+    def unlock_set(self, user_id: int, set_id: int):
         """
         Unlocks a specific set for a user.
 
@@ -88,51 +105,130 @@ class Database():
         self.__unlock_vocab(user_id, set_id, 1)
         self.con.commit()
 
-    def level_up(self, user_id, set_id):
+    def check_level_up(self, user_id: int):
         """
-        Levels up the user's set.
+        Checks if the user can level up their active set, and levels up if
+        conditions are met.
 
-        The user's level for this specific set is incremented in the 
-        [unlocked-sets] table. All vocab related to that specific set level
-        is associated with the user in the [user-to-vocab] table.
+        A player can level up if all words in the active set are familiarity
+        5 or higher.
 
         Arguments:
             user_id: Discord user id
-            set_id: desired set to level up
+        Returns:
+            Pair of (int, bool) where
+            - Int of player's new level if they leveled up, or None
+            - Bool of whether user has leveled up
+        """
+        def level_up(user_id: int, set_id: int):
+            """
+            Levels up the user's set.
+
+            The user's level for this specific set is incremented in the
+            [unlocked-sets] table. All vocab related to that specific set level
+            is associated with the user in the [user-to-vocab] table.
+
+            Arguments:
+                user_id: Discord user id
+                set_id: desired set to level up
+            Returns:
+                int of player's new level for this set
+            """
+            self.cur.execute(
+                "UPDATE 'unlocked-sets' SET current_level = current_level + 1 WHERE user_id = ?;",
+                [user_id])
+            new_level = self.current_level(user_id, set_id)
+            self.__unlock_vocab(user_id, set_id, new_level)
+            self.con.commit()
+            return new_level
+
+        active_set = self.active_set(user_id)
+        self.cur.execute(
+            "SELECT familiarity FROM 'user-to-vocab' WHERE user_id = ? AND familiarity < 5 AND vocab_id IN ( \
+                SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ?)", [user_id, active_set]
+        )
+        can_level_up = len(self.cur.fetchall()) == 0
+        new_level = None
+        if can_level_up:
+            new_level = level_up(user_id, active_set)
+        return new_level, can_level_up
+
+    def create_user(self, user_id: int):
+        """
+        Adds a user into the database.
+
+        Arguments:
+            user_id: Discord user id
         """
         self.cur.execute(
-            "UPDATE 'unlocked-sets' SET current_level = current_level + 1 WHERE user_id = ?;",
+            "INSERT INTO 'users'(user_id, active_set_id) VALUES (?, 1);",
             [user_id])
-        new_level = self.current_level(user_id, set_id)
-        self.__unlock_vocab(user_id, set_id, new_level)
+        self.unlock_set(user_id, 1)
         self.con.commit()
 
-    def player_familiarities(self, user_id, set_id):
+    def player_vocab(self, user_id: int, familiarity_level, set_id: int = None):
         """
-        Returns all vocab id's and familiarity pairs for all unlocked levels of
-        the specified set for the user.
+        Returns any matching vocab ids given the set and user familiarity.
 
         Arguments:
             user_id: Discord user id
+            familiarity_level: User familiarity of vocab. Between 0 and 9,
+                inclusive.
             set_id: Desired set id to pull the familiarities from. If None, uses
                 the user's active set.
         Returns:
-            List of all vocab id and familiarity pairs in the specified
-            set for the user.
+            List of 1-tuples of vocab ids in the specified set for the user.
         """
+        if set_id == None:
+            set_id = self.active_set(user_id)
         max_level = self.current_level(user_id, set_id)
-        print(max_level)
-        self.cur.execute("SELECT vocab_id, familiarity FROM 'user-to-vocab' WHERE user_id = ? AND vocab_id IN ( \
-            SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ? AND level <= ?)", [user_id, set_id, max_level])
+        self.cur.execute("SELECT vocab_id FROM 'user-to-vocab' \
+            WHERE user_id = ? AND familiarity = ? AND vocab_id IN ( \
+            SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ? AND level <= ?)",
+                         [user_id, familiarity_level, set_id, max_level])
         return self.cur.fetchall()
 
-# self.cur.execute(
-#     "SELECT char_native FROM 'vocab' WHERE vocab_id IN ( \
-#         SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ? AND level = 1)", [set_id])
-# test = self.cur.fetchall()
-# print(test)
+    def as_defn_pair(self, vocab_id: int):
+        """
+        Returns a pair of the native character and its romanization
 
+        Arguments:
+            vocab_id: vocabulary id
+        Returns:
+            Pair of (native character, romanization)
+        """
+        self.cur.execute("SELECT char_native, romanization FROM 'vocab' \
+            WHERE vocab_id = ?", [vocab_id])
+        return self.cur.fetchone()
 
-db = Database()
-# db.unlock_set(123, 2)
-print(db.player_familiarities(208353857992916992, 2))
+    def pronunciation(self, vocab_id: int):
+        """
+        Returns a string with the pronunciation of vocab_id.
+        """
+        self.cur.execute("SELECT pronunciation FROM 'vocab' \
+            WHERE vocab_id = ?", [vocab_id])
+        return self.cur.fetchone()[0]
+
+    def response_update(self, user_id: int, vocab_id: int, correct: bool):
+        """
+        Updates the database based on whether the user answered the question
+        correctly.
+
+        Arguments:
+            user_id: Discord user id
+            vocab_id: vocab that was asked to user
+            correct: whether the user answered correctly or not
+        """
+        familiarity = self.familiarity(user_id, vocab_id)
+        if correct:
+            correct_int = 1
+            familiarity = min(familiarity + 1, 9)
+        else:
+            correct_int = 0
+            familiarity = max(familiarity - 1, 0)
+        self.cur.execute(
+            "UPDATE 'user-to-vocab' SET times_correct = times_correct + ?, \
+            times_shown = times_shown + 1, familiarity = ? \
+            WHERE user_id = ? AND vocab_id = ?;",
+            [correct_int, familiarity, user_id, vocab_id])
+        self.con.commit()
