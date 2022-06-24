@@ -14,6 +14,14 @@ class Database():
         self.cur = self.con.cursor()
         print('Connected to database.')
 
+    def user_exists(self, user_id: int):
+        """
+        Returns a bool of whether the user exists in the database.
+        """
+        self.cur.execute(
+            "SELECT user_id FROM 'users' WHERE user_id = ?", [user_id])
+        return len(self.cur.fetchone()) != 0
+
     def current_level(self, user_id: int, set_id: int):
         """
         Returns the set level of the set for user
