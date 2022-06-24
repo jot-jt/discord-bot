@@ -20,7 +20,7 @@ class Database():
         """
         self.cur.execute(
             "SELECT user_id FROM 'users' WHERE user_id = ?", [user_id])
-        return len(self.cur.fetchone()) != 0
+        return self.cur.fetchone() != None
 
     def current_level(self, user_id: int, set_id: int):
         """

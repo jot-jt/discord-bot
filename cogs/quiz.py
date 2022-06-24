@@ -7,7 +7,7 @@ import json
 import random
 import asyncio
 import numpy as np
-import background.database as db
+import background.database as database
 
 import os
 from dotenv import load_dotenv
@@ -25,7 +25,7 @@ class Quiz(commands.Cog):
             self.vocabulary = json.load(f)
         with open('data/levels.json', 'r', encoding='utf-8') as f:
             self.levels = json.load(f)
-        self.db = db.Database()
+        self.db = database.Database()
 
     @commands.command(aliases=['q'])
     async def quiz(self, ctx):
@@ -50,12 +50,12 @@ class Quiz(commands.Cog):
                 np.arange(10), size=10, replace=False, p=bin_weights)
             i = 0
             while not found and i < 10:
-                bin_index = bin_priority[i]
+                bin_index = int(bin_priority[i])
                 bin = self.db.player_vocab(user_id, bin_index)
                 bin_sz = len(bin)
                 if bin_sz > 0:
                     vocab_id = random.choice(bin)[0]
-                    jp_char, romaji = db.as_defn_pair(vocab_id)
+                    jp_char, romaji = self.db.as_defn_pair(vocab_id)
                     found = True
                 else:
                     i += 1
@@ -75,7 +75,7 @@ class Quiz(commands.Cog):
                 return ctx.author == msg.author and ctx.channel == msg.channel
 
             pronounce_btn = discord_ui.LinkButton(
-                url=self.db.pronounce(vocab_id),
+                url=self.db.pronunciation(vocab_id),
                 label='See Pronunciation'
             )
 
@@ -103,14 +103,17 @@ class Quiz(commands.Cog):
 
         self.in_progress.append(ctx.author.id)
 
+        if not self.db.user_exists(ctx.author.id):
+            self.db.create_user(ctx.author.id)
+
         bin_weights = np.array([20, 13, 13, 13, 12, 7, 6, 6, 5, 4])
         bin_weights = bin_weights / np.sum(bin_weights)
         vocab_id, jp_char, romaji = gen_question_data(
             ctx.author.id, bin_weights)
 
         correct = await q_and_a()
-        await self.db.response_update(ctx.author.id, vocab_id, correct)
-        new_level, level_up = await self.db.check_level_up(ctx.author.id)
+        self.db.response_update(ctx.author.id, vocab_id, correct)
+        new_level, level_up = self.db.check_level_up(ctx.author.id)
         if level_up:
             await ctx.send(f':partying_face: Congratulations! You are now Level {new_level}!')
         self.in_progress.remove(ctx.author.id)
