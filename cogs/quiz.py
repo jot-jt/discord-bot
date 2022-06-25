@@ -139,32 +139,27 @@ class Quiz(commands.Cog):
         """
         Display statistics for your active set.
         """
-        player_data = self.db.user_sets(ctx.author.id)
-        active_set = self.db.active_set_id(ctx.author.id)
-        set_data = player_data['sets'][active_set]
-
         color = discord.Color.dark_magenta().value
-        level = set_data['level']
-        num_correct = set_data['num_correct']
-        vocab_discovered = len(set_data['vocab'])
-        times_played = set_data['times_played']
-        total_vocab = self.levels[active_set]['total_vocab']
+        level = self.db.total_level(ctx.author.id)
+        num_correct = self.db.total_times_correct(ctx.author.id)
+        vocab_discovered = self.db.total_vocab(ctx.author.id)
+        times_played = self.db.total_times_played(ctx.author.id)
 
         profile = discord.Embed(
             color=color,
-            title=f'Your {active_set.capitalize()} Profile!'
+            title=f'Your Profile!'
         )
 
         profile.set_author(name=ctx.author.display_name,
                            icon_url=ctx.author.avatar_url)
         profile.set_thumbnail(url=PROFILE_THUMBNAIL)
-        profile.add_field(name='Level', value=level, inline=False)
+        profile.add_field(name='Total Level', value=level, inline=False)
         profile.add_field(
             name='Correct Answers', value=num_correct, inline=False)
         profile.add_field(
             name='Times Played', value=times_played, inline=False)
         profile.add_field(
-            name='Vocabulary Discovered', value=f'{vocab_discovered}/{total_vocab}', inline=False)
+            name='Vocabulary Discovered', value=f'{vocab_discovered}', inline=False)
         await ctx.send(embed=profile)
 
     @commands.command(aliases=['dict'])

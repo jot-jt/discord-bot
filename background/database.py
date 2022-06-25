@@ -256,3 +256,48 @@ class Database():
             'unlocked-sets' INNER JOIN 'sets' USING (set_id) WHERE \
             user_id = ?", [user_id])
         return self.cur.fetchall()
+
+    def total_level(self, user_id: int) -> int:
+        """
+        Returns the total level of the user.
+        The total level is the sum of all of the user's current set levels.
+
+        Arguments:
+            user_id: Discord user id
+        """
+        self.cur.execute("SELECT SUM(current_level) FROM 'unlocked-sets' \
+            WHERE user_id = ?", [user_id])
+        return self.cur.fetchone()[0]
+
+    def total_vocab(self, user_id: int) -> int:
+        """
+        Returns the total vocabulary discovered by the user across all sets.
+
+        Arguments:
+            user_id: Discord user id
+        """
+        self.cur.execute("SELECT COUNT(vocab_id) FROM 'user-to-vocab' \
+            WHERE user_id = ?", [user_id])
+        return self.cur.fetchone()[0]
+
+    def total_times_played(self, user_id: int) -> int:
+        """
+        Returns the total number of sessions played by the user across all sets.
+
+        Arguments:
+            user_id: Discord user id
+        """
+        self.cur.execute("SELECT SUM(times_shown) FROM 'user-to-vocab' \
+            WHERE user_id = ?", [user_id])
+        return self.cur.fetchone()[0]
+
+    def total_times_correct(self, user_id: int) -> int:
+        """
+        Returns the total number of correct answers by the user across all sets.
+
+        Arguments:
+            user_id: Discord user id
+        """
+        self.cur.execute("SELECT SUM(times_correct) FROM 'user-to-vocab' \
+            WHERE user_id = ?", [user_id])
+        return self.cur.fetchone()[0]
