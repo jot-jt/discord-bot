@@ -1,4 +1,5 @@
 # quiz.py
+from re import L
 import discord
 import discord_ui
 from discord.ext import commands
@@ -135,25 +136,28 @@ class Quiz(commands.Cog):
             await ctx.send("Please provide a kana.")
 
     @commands.command(aliases=['pr'])
-    async def profile(self, ctx):
+    async def profile(self, ctx, user: commands.MemberConverter = None):
         """
         Display statistics for your active set.
         """
+        if user == None:
+            user = ctx.author
+
         color = discord.Color.dark_magenta().value
-        level = self.db.total_level(ctx.author.id)
-        num_correct = self.db.total_times_correct(ctx.author.id)
-        vocab_discovered = self.db.total_vocab(ctx.author.id)
-        times_played = self.db.total_times_played(ctx.author.id)
+        level = self.db.total_level(user.id)
+        num_correct = self.db.total_times_correct(user.id)
+        vocab_discovered = self.db.total_vocab(user.id)
+        times_played = self.db.total_times_played(user.id)
 
         profile = discord.Embed(
             color=color,
-            title=f'Your Profile!'
+            title=f'Vocabulary Profile!'
         )
 
-        profile.set_author(name=ctx.author.display_name,
-                           icon_url=ctx.author.avatar_url)
+        profile.set_author(name=user.display_name,
+                           icon_url=user.avatar_url)
         profile.set_thumbnail(url=PROFILE_THUMBNAIL)
-        profile.add_field(name='Total Level', value=level, inline=False)
+        profile.add_field(name='Level', value=level, inline=False)
         profile.add_field(
             name='Correct Answers', value=num_correct, inline=False)
         profile.add_field(
@@ -161,6 +165,11 @@ class Quiz(commands.Cog):
         profile.add_field(
             name='Vocabulary Discovered', value=f'{vocab_discovered}', inline=False)
         await ctx.send(embed=profile)
+
+    @profile.error
+    async def profile_error(self, ctx, error):
+        if isinstance(error, commands.errors.MemberNotFound):
+            await ctx.send("Invalid user.")
 
     @commands.command(aliases=['dict'])
     async def dictionary(self, ctx):
@@ -221,12 +230,15 @@ class Quiz(commands.Cog):
         await ctx.send(embed=dict)
 
     @commands.command()
-    async def sets(self, ctx):
+    async def sets(self, ctx, user: commands.MemberConverter = None):
         """
         Displays your available and active sets.
         """
-        player_data = self.db.user_sets(ctx.author.id)
-        active_set_id = self.db.active_set_id(ctx.author.id)
+        if user == None:
+            user = ctx.author
+
+        player_data = self.db.user_sets(user.id)
+        active_set_id = self.db.active_set_id(user.id)
         desc = ''
         for set in player_data:
             desc += f'\n ({set[0]}) **{set[1]}** ⋅ Level {set[2]}/{set[3]}'
@@ -235,13 +247,20 @@ class Quiz(commands.Cog):
         color = discord.Color.dark_magenta().value
         embed = discord.Embed(
             color=color,
-            title='Your Vocabulary Sets',
+            title='Vocabulary Sets',
             description=desc
         )
-        embed.set_author(name=ctx.author.display_name,
-                         icon_url=ctx.author.avatar_url)
+        embed.set_author(name=user.display_name,
+                         icon_url=user.avatar_url)
         embed.set_thumbnail(url=PROFILE_THUMBNAIL)
         await ctx.send(embed=embed)
+
+    @sets.error
+    async def sets_error(self, ctx, error):
+        if isinstance(error, commands.errors.MemberNotFound):
+            await ctx.send("Invalid user.")
+        if isinstance(error, commands.errors.CommandInvokeError):
+            await ctx.send("This user does not have a profile.")
 
     @commands.command()
     @commands.is_owner()
