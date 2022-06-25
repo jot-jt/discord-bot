@@ -42,7 +42,7 @@ class Database():
             raise RuntimeError(
                 f'set_id {set_id} does not belong to user {user_id}')
 
-    def active_set(self, user_id: int):
+    def active_set_id(self, user_id: int):
         """
         Returns the set id of the user's active set.
 
@@ -150,7 +150,7 @@ class Database():
             self.con.commit()
             return new_level
 
-        active_set = self.active_set(user_id)
+        active_set = self.active_set_id(user_id)
         self.cur.execute(
             "SELECT familiarity FROM 'user-to-vocab' WHERE user_id = ? AND familiarity < 5 AND vocab_id IN ( \
                 SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ?)", [user_id, active_set]
@@ -188,7 +188,7 @@ class Database():
             List of 1-tuples of vocab ids in the specified set for the user.
         """
         if set_id == None:
-            set_id = self.active_set(user_id)
+            set_id = self.active_set_id(user_id)
         max_level = self.current_level(user_id, set_id)
         self.cur.execute("SELECT vocab_id FROM 'user-to-vocab' \
             WHERE user_id = ? AND familiarity = ? AND vocab_id IN ( \
@@ -240,3 +240,19 @@ class Database():
             WHERE user_id = ? AND vocab_id = ?;",
             [correct_int, familiarity, user_id, vocab_id])
         self.con.commit()
+
+    def user_sets(self, user_id: int):
+        """
+        Gives the user's available sets in the format of
+        (set id, set name, current level, total level)
+
+        Arguments:
+            user_id: Discord user id
+        Returns:
+            A list of all of the user's sets, where each entry is a
+            int-str-int-int 4-tuple.
+        """
+        self.cur.execute("SELECT set_id, name, current_level, total_levels FROM \
+            'unlocked-sets' INNER JOIN 'sets' USING (set_id) WHERE \
+            user_id = ?", [user_id])
+        return self.cur.fetchall()

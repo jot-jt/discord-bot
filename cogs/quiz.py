@@ -139,8 +139,8 @@ class Quiz(commands.Cog):
         """
         Display statistics for your active set.
         """
-        player_data = self.load_player(ctx.author.id)
-        active_set = player_data['active_set']
+        player_data = self.db.user_sets(ctx.author.id)
+        active_set = self.db.active_set_id(ctx.author.id)
         set_data = player_data['sets'][active_set]
 
         color = discord.Color.dark_magenta().value
@@ -230,17 +230,17 @@ class Quiz(commands.Cog):
         """
         Displays your available and active sets.
         """
-        player_data = self.load_player(ctx.author.id)
+        player_data = self.db.user_sets(ctx.author.id)
+        active_set_id = self.db.active_set_id(ctx.author.id)
         desc = ''
-        active_set = player_data['active_set']
-        for set in player_data['sets']:
-            desc += f'\n{set.capitalize()}'
-            if set == active_set:
-                desc += ' **(ACTIVE)**'
+        for set in player_data:
+            desc += f'\n ({set[0]}) **{set[1]}** ⋅ Level {set[2]}/{set[3]}'
+            if set[0] == active_set_id:
+                desc += " __**|active|**__"
         color = discord.Color.dark_magenta().value
         embed = discord.Embed(
             color=color,
-            title='Your Available Sets',
+            title='Your Vocabulary Sets',
             description=desc
         )
         embed.set_author(name=ctx.author.display_name,
