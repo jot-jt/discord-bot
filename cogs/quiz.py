@@ -123,7 +123,7 @@ class Quiz(commands.Cog):
         Returns the pronunciation of a vocabulary word.
         """
         try:
-            vocab_id = self.db.native_to_id(native_char)
+            vocab_id = self.db.native_to_vocab_id(native_char)
             url = self.db.pronunciation(vocab_id)
             await ctx.send(url)
         except KeyError:
@@ -255,12 +255,43 @@ class Quiz(commands.Cog):
         embed.set_thumbnail(url=PROFILE_THUMBNAIL)
         await ctx.send(embed=embed)
 
-    # @sets.error
-    # async def sets_error(self, ctx, error):
-    #     if isinstance(error, commands.errors.MemberNotFound):
-    #         await ctx.send("Invalid user.")
-    #     if isinstance(error, commands.errors.CommandInvokeError):
-    #         await ctx.send("This user does not have a profile.")
+    @sets.error
+    async def sets_error(self, ctx, error):
+        if isinstance(error, commands.errors.MemberNotFound):
+            await ctx.send("Invalid user.")
+        if isinstance(error, commands.errors.CommandInvokeError):
+            await ctx.send("This user does not have a profile.")
+
+    @commands.command()
+    async def unlock(self, ctx, *, arg):
+        """Unlock a new set."""
+        # convert given argument to set id
+        try:
+            try:
+                set_id = int(arg)
+                assert self.db.set_exists(set_id)
+            except:
+                set_id = self.db.set_name_to_id(arg)
+        except:
+            await ctx.send('This set cannot be located. Please double-check your input.')
+            return
+
+        # check if user unlocked the set already
+        if self.db.set_is_unlocked(ctx.author.id, set_id):
+            await ctx.send('You have already unlocked this set.')
+            return
+
+        # check if unlock conditions are met, and unlock if so.
+        if set_id == 2 and self.db.current_level(ctx.author.id, 1) >= 10:
+            self.db.unlock_set(ctx.author.id, 2)
+            await ctx.send(f'You have unlocked Katakana Letters!')
+        else:
+            await ctx.send(f'The requirements to unlock this set have not been met.')
+
+    @unlock.error
+    async def unlock_error(self, ctx, error):
+        if isinstance(error, commands.errors.MissingRequiredArgument):
+            await ctx.send("Please provide a set number or name to unlock.")
 
     @commands.command()
     @commands.is_owner()

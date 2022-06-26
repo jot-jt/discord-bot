@@ -22,6 +22,14 @@ class Database():
             "SELECT user_id FROM 'users' WHERE user_id = ?", [user_id])
         return self.cur.fetchone() != None
 
+    def set_exists(self, set_id: int):
+        """
+        Returns a bool of whether the set exists in the database.
+        """
+        self.cur.execute(
+            "SELECT set_id FROM 'sets' WHERE set_id = ?", [set_id])
+        return self.cur.fetchone() != None
+
     def current_level(self, user_id: int, set_id: int):
         """
         Returns the set level of the set for user
@@ -248,7 +256,7 @@ class Database():
         self.con.commit()
 
     class Set():
-        def __init__(self, set_id, name, current_level, total_levels, unlock_desc = None):
+        def __init__(self, set_id, name, current_level, total_levels, unlock_desc=None):
             self.set_id = set_id
             self.name = name
             self.current_level = current_level
@@ -283,7 +291,8 @@ class Database():
         set_tups = self.cur.fetchall()
         locked = []
         for set_tup in set_tups:
-            set = Database.Set(set_tup[0], set_tup[1], 0, set_tup[2], set_tup[3])
+            set = Database.Set(set_tup[0], set_tup[1],
+                               0, set_tup[2], set_tup[3])
             locked.append(set)
         return unlocked, locked
 
@@ -332,7 +341,7 @@ class Database():
             WHERE user_id = ?", [user_id])
         return self.cur.fetchone()[0]
 
-    def native_to_id(self, native_char: str) -> int:
+    def native_to_vocab_id(self, native_char: str) -> int:
         """
         Returns the vocabulary id of a native character.
 
@@ -342,3 +351,26 @@ class Database():
         self.cur.execute("SELECT vocab_id FROM 'vocab' \
             WHERE char_native = ?", [native_char])
         return self.cur.fetchone()[0]
+
+    def set_name_to_id(self, name: str) -> int:
+        """
+        Returns the vocabulary id of a native character.
+
+        Arguments:
+            name: entry in name column of database's sets table
+        """
+        name = name.strip()
+        self.cur.execute("SELECT set_id FROM 'sets' WHERE name LIKE ?", [name])
+        return self.cur.fetchone()[0]
+
+    def set_is_unlocked(self, user_id: int, set_id: int) -> bool:
+        """
+        Returns True if the set id is unlocked by user and False otherwise.
+        Arguments:
+            user_id: Discord user id
+            set_id: Set id to check
+        """
+        self.cur.execute(
+            "SELECT user_id FROM 'unlocked-sets' WHERE user_id = ? \
+                AND set_id = ?", [user_id, set_id])
+        return self.cur.fetchone() != None
