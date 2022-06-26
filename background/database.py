@@ -35,7 +35,8 @@ class Database():
             RuntimeError if user-set pair doesn't exist
         """
         self.cur.execute(
-            "SELECT current_level FROM 'unlocked-sets' WHERE user_id = ? AND set_id = ?", [user_id, set_id])
+            "SELECT current_level FROM 'unlocked-sets' WHERE user_id = ? \
+                AND set_id = ?", [user_id, set_id])
         try:
             return self.cur.fetchone()[0]
         except:
@@ -86,13 +87,14 @@ class Database():
             new_level: specific level from the set to add to user
         """
         self.cur.execute(
-            "SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ? AND level = ?", [set_id, new_level])
+            "SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ? AND level = ?",
+            [set_id, new_level])
         new_vocab_ids = tuple(self.cur.fetchall())
         for entry in new_vocab_ids:
             vocab_id = entry[0]
-            self.cur.execute(
-                "INSERT INTO 'user-to-vocab' (user_id, vocab_id, times_correct, times_shown, familiarity) VALUES (?, ?, 0, 0, 0)", (user_id, vocab_id)
-            )
+            self.cur.execute("INSERT INTO 'user-to-vocab' \
+                (user_id, vocab_id, times_correct, times_shown, familiarity) \
+                VALUES (?, ?, 0, 0, 0)", (user_id, vocab_id))
         self.con.commit()
 
     def unlock_set(self, user_id: int, set_id: int):
@@ -108,7 +110,8 @@ class Database():
             set_id: desired set to unlock
         """
         self.cur.execute(
-            "INSERT INTO 'unlocked-sets' (user_id, set_id, current_level) VALUES (?, ?, 1);",
+            "INSERT INTO 'unlocked-sets' (user_id, set_id, current_level) \
+                VALUES (?, ?, 1);",
             (user_id, set_id))
         self.__unlock_vocab(user_id, set_id, 1)
         self.con.commit()
@@ -143,7 +146,8 @@ class Database():
                 int of player's new level for this set
             """
             self.cur.execute(
-                "UPDATE 'unlocked-sets' SET current_level = current_level + 1 WHERE user_id = ?;",
+                "UPDATE 'unlocked-sets' SET current_level = current_level + 1 \
+                    WHERE user_id = ?;",
                 [user_id])
             new_level = self.current_level(user_id, set_id)
             self.__unlock_vocab(user_id, set_id, new_level)
@@ -152,8 +156,10 @@ class Database():
 
         active_set = self.active_set_id(user_id)
         self.cur.execute(
-            "SELECT familiarity FROM 'user-to-vocab' WHERE user_id = ? AND familiarity < 5 AND vocab_id IN ( \
-                SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ?)", [user_id, active_set]
+            "SELECT familiarity FROM 'user-to-vocab' WHERE user_id = ? \
+            AND familiarity < 5 AND vocab_id IN ( \
+            SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ?)",
+            [user_id, active_set]
         )
         can_level_up = len(self.cur.fetchall()) == 0
         new_level = None
@@ -300,4 +306,15 @@ class Database():
         """
         self.cur.execute("SELECT SUM(times_correct) FROM 'user-to-vocab' \
             WHERE user_id = ?", [user_id])
+        return self.cur.fetchone()[0]
+
+    def native_to_id(self, native_char: str) -> int:
+        """
+        Returns the vocabulary id of a native character.
+
+        Arguments:
+            native_char: entry in char_native column of database's vocab table
+        """
+        self.cur.execute("SELECT vocab_id FROM 'vocab' \
+            WHERE char_native = ?", [native_char])
         return self.cur.fetchone()[0]

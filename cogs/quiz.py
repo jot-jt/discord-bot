@@ -30,9 +30,7 @@ class Quiz(commands.Cog):
 
     @commands.command(aliases=['q'])
     async def quiz(self, ctx):
-        """
-        Asks what a vocabulary word is in romaji.
-        """
+        """ Asks what a vocabulary word is in romaji. """
         def gen_question_data(user_id: int, bin_weights: np.array):
             """
             Loads a Q&A pair from levels.json based on player level
@@ -120,20 +118,20 @@ class Quiz(commands.Cog):
         self.in_progress.remove(ctx.author.id)
 
     @commands.command()
-    async def pronounce(self, ctx, vocab: str):
+    async def pronounce(self, ctx, native_char: str):
         """
         Returns the pronunciation of a vocabulary word.
         """
         try:
-            url = self.vocabulary[vocab]['pronunciation']
+            vocab_id = self.db.native_to_id(native_char)
+            url = self.db.pronunciation(vocab_id)
             await ctx.send(url)
         except KeyError:
             await ctx.send(":cry: No pronunciation found. Only kanas are supported.")
 
     @pronounce.error
     async def pronounce_error(self, ctx, error):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Please provide a kana.")
+        await ctx.send("Please provide a valid kana.")
 
     @commands.command(aliases=['pr'])
     async def profile(self, ctx, user: commands.MemberConverter = None):
@@ -231,9 +229,7 @@ class Quiz(commands.Cog):
 
     @commands.command()
     async def sets(self, ctx, user: commands.MemberConverter = None):
-        """
-        Displays your available and active sets.
-        """
+        """ Displays your available sets. """
         if user == None:
             user = ctx.author
 
