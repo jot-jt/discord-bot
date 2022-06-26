@@ -247,21 +247,45 @@ class Database():
             [correct_int, familiarity, user_id, vocab_id])
         self.con.commit()
 
+    class Set():
+        def __init__(self, set_id, name, current_level, total_levels, unlock_desc = None):
+            self.set_id = set_id
+            self.name = name
+            self.current_level = current_level
+            self.total_levels = total_levels
+            self.unlock_desc = unlock_desc
+
     def user_sets(self, user_id: int):
         """
-        Gives the user's available sets in the format of
+        Gives the user's available and locked sets in the format of
         (set id, set name, current level, total level)
 
         Arguments:
             user_id: Discord user id
         Returns:
-            A list of all of the user's sets, where each entry is a
-            int-str-int-int 4-tuple.
+            A pair of lists containing Database.Set objects. The first entry
+            contains sets available to the user, while the second entry contains
+            the sets locked from the user.
+
         """
         self.cur.execute("SELECT set_id, name, current_level, total_levels FROM \
             'unlocked-sets' INNER JOIN 'sets' USING (set_id) WHERE \
             user_id = ?", [user_id])
-        return self.cur.fetchall()
+        set_tups = self.cur.fetchall()
+        unlocked = []
+        for set_tup in set_tups:
+            set = Database.Set(set_tup[0], set_tup[1], set_tup[2], set_tup[3])
+            unlocked.append(set)
+        self.cur.execute("SELECT set_id, name, total_levels, unlock_desc FROM \
+            'sets' WHERE set_id NOT IN (SELECT set_id FROM \
+            'unlocked-sets' INNER JOIN 'sets' USING (set_id) WHERE \
+            user_id = ?)", [user_id])
+        set_tups = self.cur.fetchall()
+        locked = []
+        for set_tup in set_tups:
+            set = Database.Set(set_tup[0], set_tup[1], 0, set_tup[2], set_tup[3])
+            locked.append(set)
+        return unlocked, locked
 
     def total_level(self, user_id: int) -> int:
         """

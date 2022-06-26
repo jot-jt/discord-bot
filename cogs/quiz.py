@@ -229,17 +229,21 @@ class Quiz(commands.Cog):
 
     @commands.command()
     async def sets(self, ctx, user: commands.MemberConverter = None):
-        """ Displays your available sets. """
+        """ Displays all sets sets. """
         if user == None:
             user = ctx.author
 
-        player_data = self.db.user_sets(user.id)
+        unlocked_sets, locked_sets = self.db.user_sets(user.id)
         active_set_id = self.db.active_set_id(user.id)
-        desc = ''
-        for set in player_data:
-            desc += f'\n ({set[0]}) **{set[1]}** ⋅ Level {set[2]}/{set[3]}'
-            if set[0] == active_set_id:
+        desc = '__**Your Sets**__'
+        for set in unlocked_sets:
+            desc += f'\n ({set.set_id}) **{set.name}** ⋅ Level {set.current_level}/{set.total_levels}'
+            if set.set_id == active_set_id:
                 desc += " __**|active|**__"
+        desc += '\n\n__**Locked Sets**__'
+        for set in locked_sets:
+            desc += f'\n ({set.set_id}) **{set.name}** ⋅ Level {set.current_level}/{set.total_levels} :lock:\
+                \n -> *{set.unlock_desc}*'
         color = discord.Color.dark_magenta().value
         embed = discord.Embed(
             color=color,
@@ -251,12 +255,12 @@ class Quiz(commands.Cog):
         embed.set_thumbnail(url=PROFILE_THUMBNAIL)
         await ctx.send(embed=embed)
 
-    @sets.error
-    async def sets_error(self, ctx, error):
-        if isinstance(error, commands.errors.MemberNotFound):
-            await ctx.send("Invalid user.")
-        if isinstance(error, commands.errors.CommandInvokeError):
-            await ctx.send("This user does not have a profile.")
+    # @sets.error
+    # async def sets_error(self, ctx, error):
+    #     if isinstance(error, commands.errors.MemberNotFound):
+    #         await ctx.send("Invalid user.")
+    #     if isinstance(error, commands.errors.CommandInvokeError):
+    #         await ctx.send("This user does not have a profile.")
 
     @commands.command()
     @commands.is_owner()
