@@ -374,3 +374,14 @@ class Database():
             "SELECT user_id FROM 'unlocked-sets' WHERE user_id = ? \
                 AND set_id = ?", [user_id, set_id])
         return self.cur.fetchone() != None
+
+    def activate_set(self, user_id: int, set_id: int):
+        """
+        Changes the user's active set.
+        Arguments:
+            user_id: Discord user id
+            set_id: Set id to check
+        """
+        self.cur.execute(
+            "UPDATE 'users' SET active_set_id = ? \
+                    WHERE user_id = ?;", [set_id, user_id])

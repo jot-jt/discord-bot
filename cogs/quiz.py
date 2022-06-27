@@ -14,6 +14,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 PROFILE_THUMBNAIL = os.getenv('PROFILE_THUMBNAIL')
+DEFAULT_PRONOUNCE = os.getenv('DEFAULT_PRONOUNCE')
 
 
 class Quiz(commands.Cog):
@@ -73,8 +74,12 @@ class Quiz(commands.Cog):
             def check(msg):
                 return ctx.author == msg.author and ctx.channel == msg.channel
 
+            pronunciation = self.db.pronunciation(vocab_id)
+            if pronunciation == None:
+                pronunciation = DEFAULT_PRONOUNCE
+
             pronounce_btn = discord_ui.LinkButton(
-                url=self.db.pronunciation(vocab_id),
+                url=pronunciation,
                 label='See Pronunciation'
             )
 
@@ -136,7 +141,7 @@ class Quiz(commands.Cog):
     @commands.command(aliases=['pr'])
     async def profile(self, ctx, user: commands.MemberConverter = None):
         """
-        Display statistics for your active set.
+        Display your profile.
         """
         if user == None:
             user = ctx.author
@@ -229,7 +234,7 @@ class Quiz(commands.Cog):
 
     @commands.command()
     async def sets(self, ctx, user: commands.MemberConverter = None):
-        """ Displays all sets sets. """
+        """ Displays all of your sets. """
         if user == None:
             user = ctx.author
 
@@ -273,14 +278,16 @@ class Quiz(commands.Cog):
             except:
                 set_id = self.db.set_name_to_id(arg)
         except:
-            await ctx.send('This set cannot be located. Please double-check your input.')
+            await ctx.send('This set cannot be located. Please double-check your input. \
+                \nUse the `sets` command to view all sets.')
             return
 
         # check if user unlocked the set already
         if self.db.set_is_unlocked(ctx.author.id, set_id):
-            await ctx.send('You have already unlocked this set.')
+            await ctx.send('You have already unlocked this set. \nUse the `sets` command to view all sets.')
             return
 
+        print(set_id)
         # check if unlock conditions are met, and unlock if so.
         if set_id == 2 and self.db.current_level(ctx.author.id, 1) >= 10:
             self.db.unlock_set(ctx.author.id, 2)
@@ -291,7 +298,35 @@ class Quiz(commands.Cog):
     @unlock.error
     async def unlock_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
-            await ctx.send("Please provide a set number or name to unlock.")
+            await ctx.send("Please provide a set number or name to unlock. \
+                \nUse the `sets` command to view all sets.")
+
+    @commands.command()
+    async def activate(self, ctx, *, arg):
+        """Change your active set."""
+        # convert given argument to set id
+        try:
+            try:
+                set_id = int(arg)
+                assert self.db.set_exists(set_id)
+            except:
+                set_id = self.db.set_name_to_id(arg)
+        except:
+            await ctx.send('This set cannot be located. Please double-check your input. \
+            \nUse the `sets` command to view all sets.')
+            return
+
+        print(set_id)
+        # check if user unlocked the set already
+        if self.db.set_is_unlocked(ctx.author.id, set_id):
+            self.db.activate_set(ctx.author.id, set_id)
+            await ctx.send('Update successful.')
+
+    @activate.error
+    async def activate_error(self, ctx, error):
+        if isinstance(error, commands.errors.MissingRequiredArgument):
+            await ctx.send("Please provide a valid set number or name to activate. \
+                \nUse the `sets` command to view all of your sets.")
 
     @commands.command()
     @commands.is_owner()
