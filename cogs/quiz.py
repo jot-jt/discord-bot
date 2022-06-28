@@ -287,7 +287,6 @@ class Quiz(commands.Cog):
             await ctx.send('You have already unlocked this set. \nUse the `sets` command to view all sets.')
             return
 
-        print(set_id)
         # check if unlock conditions are met, and unlock if so.
         if set_id == 2 and self.db.current_level(ctx.author.id, 1) >= 10:
             self.db.unlock_set(ctx.author.id, 2)
@@ -316,7 +315,6 @@ class Quiz(commands.Cog):
             \nUse the `sets` command to view all sets.')
             return
 
-        print(set_id)
         # check if user unlocked the set already
         if self.db.set_is_unlocked(ctx.author.id, set_id):
             self.db.activate_set(ctx.author.id, set_id)

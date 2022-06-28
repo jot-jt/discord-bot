@@ -163,6 +163,11 @@ class Database():
             return new_level
 
         active_set = self.active_set_id(user_id)
+        current_level = self.current_level(user_id, active_set)
+        max_level = self.max_level(active_set)
+        if current_level == max_level:  # do not level up if already max level
+            return None, False
+
         self.cur.execute(
             "SELECT familiarity FROM 'user-to-vocab' WHERE user_id = ? \
             AND familiarity < 5 AND vocab_id IN ( \
@@ -385,3 +390,9 @@ class Database():
         self.cur.execute(
             "UPDATE 'users' SET active_set_id = ? \
                     WHERE user_id = ?;", [set_id, user_id])
+
+    def max_level(self, set_id: int):
+        """ Returns the maximum level of the given set"""
+        self.cur.execute(
+            "SELECT total_levels FROM 'sets' WHERE set_id = ?", [set_id])
+        return self.cur.fetchone()[0]
