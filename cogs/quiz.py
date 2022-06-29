@@ -175,17 +175,18 @@ class Quiz(commands.Cog):
             await ctx.send("Invalid user.")
 
     @commands.command(aliases=['dict'])
-    async def dictionary(self, ctx):
+    async def dictionary(self, ctx, *, arg=None):
         """
         Displays the words that you have unlocked so far.
         """
-        def generate_string(set_data, start, stop):
+        def generate_string(user_id, set_id, start, stop):
             """
             Generates a string where each line is in form '{KANA} {ROMAJI}'
-            from player_data's familiarity entries.
+            for a dictionary.
 
             Arguments:
-                set_data: Python representation of users.json set
+                user_id: Discord user id
+                set_id: Set to display in dictionary
                 start: starting familiarity bin
                 stop: ending familiarity bin
             Returns:
@@ -195,35 +196,51 @@ class Quiz(commands.Cog):
                     the integer counts the number of entries.
 
             """
+            vocab_lst = self.db.set_to_dict(user_id, set_id, start, stop)
             str_entries = ""
-            count = 0
-            for i in range(start, stop+1):
-                list = set_data['familiarities'][str(i)]
-                if len(list) != 0:
-                    for entry in list:
-                        romaji = self.vocabulary[entry]['romaji']
-                        str_entries += f'\n**{entry}** {romaji}'
-                        count += 1
+            count = len(vocab_lst)
+            for vocab in vocab_lst:
+                native = vocab.char_native
+                romaji = vocab.romanization
+                str_entries += f'\n**{native}** {romaji}'
             if str_entries == '':
                 str_entries = 'None'
             return str_entries, count
 
-        player_data = self.load_player(ctx.author.id)
-        active_set = player_data['active_set']
-        set_data = player_data['sets'][active_set]
+        if arg == None:
+            set_id = self.db.active_set_id(ctx.author.id)
+        else:
+            try:
+                try:
+                    set_id = int(arg)
+                    assert self.db.set_exists(set_id)
+                except:
+                    set_id = self.db.set_name_to_id(arg)
+            except:
+                await ctx.send('This set cannot be located. Please double-check your input. \
+                    \nUse the `sets` command to view all sets.')
+                return
+
+        # check if user unlocked the set
+        if not self.db.set_is_unlocked(ctx.author.id, set_id):
+            await ctx.send('You have not unlocked this set yet. \nUse the `sets` command to view all sets.')
+            return
 
         color = discord.Color.dark_magenta().value
         dict = discord.Embed(
             color=color,
-            title=f'Your {active_set.capitalize()} Vocabulary Bank!'
+            title=f'Your Vocabulary Bank!'
         )
         dict.set_author(name=ctx.author.display_name,
                         icon_url=ctx.author.avatar_url)
         dict.set_thumbnail(url=PROFILE_THUMBNAIL)
 
-        learn_entries, learn_count = generate_string(set_data, 0, 4)
-        review_entries, review_count = generate_string(set_data, 5, 8)
-        master_entries, master_count = generate_string(set_data, 9, 9)
+        learn_entries, learn_count = generate_string(
+            ctx.author.id, set_id, 0, 4)
+        review_entries, review_count = generate_string(
+            ctx.author.id, set_id, 0, 4)
+        master_entries, master_count = generate_string(
+            ctx.author.id, set_id, 9, 9)
         dict.add_field(name=f'Learning - {learn_count}',
                        value=learn_entries, inline=False)
         dict.add_field(name=f'Reviewing - {review_count}',

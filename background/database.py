@@ -359,7 +359,7 @@ class Database():
 
     def set_name_to_id(self, name: str) -> int:
         """
-        Returns the vocabulary id of a native character.
+        Returns the set id of a set name.
 
         Arguments:
             name: entry in name column of database's sets table
@@ -367,6 +367,54 @@ class Database():
         name = name.strip()
         self.cur.execute("SELECT set_id FROM 'sets' WHERE name LIKE ?", [name])
         return self.cur.fetchone()[0]
+
+    class Vocab():
+        """ Representation of a vocabulary word. """
+
+        def __init__(self, vocab_id, char_native=None, romanization=None,
+                     definition=None, pronunciation=None):
+            self.vocab_id = vocab_id
+            self.char_native = char_native
+            self.romanization = romanization
+            self.definitiion = definition
+            self.pronunciation = pronunciation
+
+    class UserVocab(Vocab):
+        """ Representation of a vocabulary word tied with a user """
+
+        def __init__(self, vocab_id, user_id, char_native=None, romanization=None,
+                     definition=None, pronunciation=None, times_correct=None,
+                     times_shown=None, familiarity=None, last_asked=None):
+            super().__init__(vocab_id, char_native, romanization, definition, pronunciation)
+            self.user_id = user_id
+            self.times_correct = times_correct
+            self.times_shown = times_shown
+            self.familiarity = familiarity
+            self.last_asked = last_asked
+
+    def set_to_dict(self, user_id: int, set_id: int, familiar_min: int, familiar_max: int):
+        """
+        Returns a list of UserVocab objects for all vocabulary that meets
+        the familiarity requirements in a user's set.
+
+        Arguments:
+            user_id: Discord user id
+            set_id: entry in set_id column of database's sets table
+            familiar_min: minimum familiarity level of vocab
+            familiar_max: maximum familiarity level of vocab
+        """
+        self.cur.execute("SELECT vocab_id, user_id, char_native, romanization, \
+            definition, pronunciation, times_correct, times_shown, familiarity, \
+            last_asked FROM 'user-to-vocab' INNER JOIN 'vocab' USING (vocab_id) \
+            WHERE user_id = ? AND familiarity >= ? AND familiarity <= ? \
+            AND vocab_id IN (SELECT vocab_id FROM 'set-to-vocab' WHERE set_id = ?)", [user_id, familiar_min, familiar_max, set_id])
+        tup_list = self.cur.fetchall()
+        obj_list = []
+        for entry in tup_list:
+            user_vocab = self.UserVocab(
+                entry[0], entry[1], entry[2], entry[3], entry[4], entry[5], entry[6], entry[7], entry[8], entry[9])
+            obj_list.append(user_vocab)
+        return obj_list
 
     def set_is_unlocked(self, user_id: int, set_id: int) -> bool:
         """
