@@ -252,7 +252,10 @@ class Database():
             familiarity = min(familiarity + 1, 9)
         else:
             correct_int = 0
-            familiarity = max(familiarity - 1, 0)
+            if familiarity == 9:
+                familiarity = 6
+            else:
+                familiarity = max(familiarity - 1, 0)
         self.cur.execute(
             "UPDATE 'user-to-vocab' SET times_correct = times_correct + ?, \
             times_shown = times_shown + 1, familiarity = ? \
