@@ -1,5 +1,4 @@
 # quiz.py
-from re import L
 import discord
 import discord_ui
 from discord.ext import commands
@@ -110,7 +109,7 @@ class Quiz(commands.Cog):
         if not self.db.user_exists(ctx.author.id):
             self.db.create_user(ctx.author.id)
 
-        bin_weights = np.array([20, 13, 13, 13, 12, 7, 6, 6, 5, 4])
+        bin_weights = np.array([20, 13, 13, 13, 12, 5, 5, 5, 5, 8])
         bin_weights = bin_weights / np.sum(bin_weights)
         vocab_id, jp_char, romaji = gen_question_data(
             ctx.author.id, bin_weights)
@@ -165,6 +164,8 @@ class Quiz(commands.Cog):
             name='Correct Answers', value=num_correct, inline=False)
         profile.add_field(
             name='Times Played', value=times_played, inline=False)
+        profile.add_field(
+            name='Accuracy', value=f'{(num_correct/times_played):.1%}', inline=False)
         profile.add_field(
             name='Vocabulary Discovered', value=f'{vocab_discovered}', inline=False)
         await ctx.send(embed=profile)
@@ -238,15 +239,15 @@ class Quiz(commands.Cog):
         learn_entries, learn_count = generate_string(
             ctx.author.id, set_id, 0, 4)
         review_entries, review_count = generate_string(
-            ctx.author.id, set_id, 0, 4)
-        master_entries, master_count = generate_string(
-            ctx.author.id, set_id, 9, 9)
+            ctx.author.id, set_id, 5, 8)
+        # master_entries, master_count = generate_string(
+        #     ctx.author.id, set_id, 9, 9)
         dict.add_field(name=f'Learning - {learn_count}',
                        value=learn_entries, inline=False)
         dict.add_field(name=f'Reviewing - {review_count}',
                        value=review_entries, inline=False)
-        dict.add_field(
-            name=f'Mastered - {master_count}', value=master_entries, inline=False)
+        # dict.add_field(
+        #     name=f'Mastered - {master_count}', value=master_entries, inline=False)
         await ctx.send(embed=dict)
 
     @commands.command()
