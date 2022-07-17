@@ -1,0 +1,6 @@
+discord-py
+discord-ui
+numpy
+asyncio
+python-dotenv
+pysqlite3
