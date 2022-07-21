@@ -3,6 +3,12 @@ import discord
 from discord.ext import commands
 
 import random
+import json
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
+PROFILE_THUMBNAIL = os.getenv('PROFILE_THUMBNAIL')
 
 
 class Misc(commands.Cog):
@@ -41,6 +47,35 @@ class Misc(commands.Cog):
     async def _8ball_error(self, ctx, error):
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send("Please provide a yes/no question.")
+
+    @commands.command(name='io', help='List some web browser games.')
+    async def io(self, ctx):
+        with open('data/io.json', 'r', encoding='utf-8') as f:
+            websites = json.load(f)
+
+        color = discord.Color.dark_magenta().value
+        embed = discord.Embed(
+            color=color,
+            title=f'Multiplayer .io Games'
+        )
+        user = ctx.author
+        embed.set_author(name=user.display_name,
+                         icon_url=user.avatar_url)
+        embed.set_thumbnail(url=PROFILE_THUMBNAIL)
+
+        general = ''
+        for website in websites['general']:
+            general += f'\n{website}'
+
+        drawing = ''
+        for website in websites['drawing']:
+            drawing += f'\n{website}'
+
+        embed.add_field(
+            name=':partying_face:', value=general, inline=False)
+        embed.add_field(
+            name=':pencil:', value=drawing, inline=False)
+        await ctx.send(embed=embed)
 
 
 def setup(client):
