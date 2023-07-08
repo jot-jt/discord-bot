@@ -1,4 +1,3 @@
-# Kana Quiz Bot
-Discord.py bot that trains Japanese Hiragana and Katakana identification via a level-based game.
+Discord bot quizzes on Japanese Hiragana and Katakana identification via a level-based game.
 
-Player progress is persistent across multiple servers via a private database.
+Player progress is persistent across multiple servers with a SQLite database.
